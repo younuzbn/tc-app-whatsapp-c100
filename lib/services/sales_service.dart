@@ -103,6 +103,39 @@ class ResultChatMessage {
   }
 }
 
+class WalletTopupMessage {
+  const WalletTopupMessage({
+    required this.id,
+    required this.username,
+    required this.amount,
+    required this.uti,
+    required this.screenshotUrl,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String username;
+  final double amount;
+  final String uti;
+  final String screenshotUrl;
+  final DateTime? createdAt;
+
+  factory WalletTopupMessage.fromJson(Map<String, dynamic> json) {
+    final path = json['screenshotUrl']?.toString() ?? '';
+    final absoluteUrl = path.startsWith('http')
+        ? path
+        : '${AppConfig.apiBaseUrl}$path';
+    return WalletTopupMessage(
+      id: json['_id']?.toString() ?? '',
+      username: json['username']?.toString() ?? '',
+      amount: double.tryParse(json['amount']?.toString() ?? '') ?? 0,
+      uti: json['uti']?.toString() ?? '',
+      screenshotUrl: absoluteUrl,
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
+    );
+  }
+}
+
 class ConversationMessage {
   const ConversationMessage({
     required this.id,
@@ -112,6 +145,7 @@ class ConversationMessage {
     required this.date,
     this.sale,
     this.resultMessage,
+    this.walletTopup,
   });
 
   final String id;
@@ -121,6 +155,7 @@ class ConversationMessage {
   final DateTime? date;
   final SalesRecord? sale;
   final ResultChatMessage? resultMessage;
+  final WalletTopupMessage? walletTopup;
 
   factory ConversationMessage.fromJson(Map<String, dynamic> json) {
     final type = json['messageType']?.toString() ?? 'sale';
@@ -134,6 +169,17 @@ class ConversationMessage {
         timeSlot: result.timeSlot,
         date: result.resultDate,
         resultMessage: result,
+      );
+    }
+    if (type == 'wallet_topup') {
+      final topup = WalletTopupMessage.fromJson(json);
+      return ConversationMessage(
+        id: topup.id,
+        messageType: type,
+        messageFrom: from,
+        timeSlot: 'wallet',
+        date: topup.createdAt,
+        walletTopup: topup,
       );
     }
     final sale = SalesRecord.fromJson(json);

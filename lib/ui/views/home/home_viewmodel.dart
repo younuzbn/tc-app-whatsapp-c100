@@ -3,6 +3,8 @@ import 'package:stacked/stacked.dart';
 import '../../../services/session_service.dart';
 import '../../../services/wallet_service.dart';
 
+enum HomeCategory { draws, results }
+
 class HomeViewModel extends BaseViewModel {
   HomeViewModel({required this.displayPhoneNumber}) {
     Future.microtask(refreshWallet);
@@ -13,11 +15,20 @@ class HomeViewModel extends BaseViewModel {
 
   bool _walletLoading = true;
   String _walletChipText = '';
+  HomeCategory _selectedCategory = HomeCategory.draws;
 
   /// Text next to the wallet icon (e.g. `₹500`, `—`, or empty while loading).
   String get walletChipText => _walletChipText;
 
   bool get walletLoading => _walletLoading;
+
+  HomeCategory get selectedCategory => _selectedCategory;
+
+  void selectCategory(HomeCategory category) {
+    if (_selectedCategory == category) return;
+    _selectedCategory = category;
+    notifyListeners();
+  }
 
   Future<void> refreshWallet() async {
     _walletLoading = true;

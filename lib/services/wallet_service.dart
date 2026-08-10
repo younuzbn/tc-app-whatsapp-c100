@@ -37,7 +37,12 @@ class WalletService {
     }
   }
 
-  Future<double> addFunds(double amount) async {
+  Future<double> addFunds({
+    required double amount,
+    required String uti,
+    required String screenshotBase64,
+    String screenshotMime = 'image/jpeg',
+  }) async {
     final token = SessionService.authToken;
     if (token == null || token.isEmpty) {
       throw Exception('Login required');
@@ -48,9 +53,14 @@ class WalletService {
           .post(
             uri,
             headers: _headers(token),
-            body: jsonEncode({'amount': amount}),
+            body: jsonEncode({
+              'amount': amount,
+              'uti': uti,
+              'screenshotBase64': screenshotBase64,
+              'screenshotMime': screenshotMime,
+            }),
           )
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 30));
       final body = _decodeBody(response.body);
       if (response.statusCode >= 400 || body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to add funds');

@@ -4,6 +4,7 @@ import 'package:stacked/stacked.dart';
 import '../../../services/session_service.dart';
 import '../auth/phone_login/phone_login_view.dart';
 import '../game_chat/game_chat_view.dart';
+import '../results/results_chat_view.dart';
 import '../wallet/wallet_view.dart';
 import 'game_chat_data.dart';
 import 'home_viewmodel.dart';
@@ -53,7 +54,7 @@ class HomeView extends StackedView<HomeViewModel> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Chats',
+                  'Home',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 34,
@@ -69,9 +70,14 @@ class HomeView extends StackedView<HomeViewModel> {
               child: _SearchBar(),
             ),
             const SizedBox(height: 12),
-            const _FilterRow(),
+            _FilterRow(
+              selected: viewModel.selectedCategory,
+              onSelected: viewModel.selectCategory,
+            ),
             const SizedBox(height: 8),
-            const Expanded(child: _ChatList()),
+            Expanded(
+              child: _ChatList(category: viewModel.selectedCategory),
+            ),
             const _BottomNav(),
           ],
         ),
@@ -102,23 +108,24 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 4, 10, 6),
+      padding: const EdgeInsets.fromLTRB(16, 8, 10, 6),
       child: Row(
         children: [
-          Material(
-            color: HomeView._chipInactive,
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: () {},
-              child: const SizedBox(
-                width: 38,
-                height: 38,
-                child: Icon(Icons.more_horiz, color: Colors.white, size: 22),
-              ),
+          const Text(
+            'Win App',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
             ),
           ),
           const Spacer(),
+          _CircleIconButton(
+            icon: Icons.notifications_none_rounded,
+            onTap: () {},
+          ),
+          const SizedBox(width: 8),
           Material(
             color: HomeView._chipInactive,
             borderRadius: BorderRadius.circular(20),
@@ -159,50 +166,71 @@ class _TopBar extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () {},
-            child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4B9B8B),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.card_giftcard, color: Colors.white, size: 18),
-                  SizedBox(width: 8),
-                  Text(
-                    'Refer & Earn',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 2),
+          const SizedBox(width: 8),
           PopupMenuButton<String>(
             color: HomeView._surface,
-            icon: const Icon(Icons.more_vert, color: Colors.white),
+            padding: EdgeInsets.zero,
+            offset: const Offset(0, 40),
             onSelected: (value) {
               if (value == 'logout') {
                 onLogout();
               }
             },
-            itemBuilder: (context) => const [
+            itemBuilder: (context) => [
               PopupMenuItem<String>(
+                enabled: false,
+                child: Text(
+                  displayPhoneNumber,
+                  style: const TextStyle(color: HomeView._muted, fontSize: 13),
+                ),
+              ),
+              const PopupMenuItem<String>(
                 value: 'logout',
                 child: Text('Log out', style: TextStyle(color: Colors.white)),
               ),
             ],
+            child: Material(
+              color: HomeView._chipInactive,
+              shape: const CircleBorder(),
+              child: const SizedBox(
+                width: 38,
+                height: 38,
+                child: Icon(
+                  Icons.person_outline_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CircleIconButton extends StatelessWidget {
+  const _CircleIconButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: HomeView._chipInactive,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 38,
+          height: 38,
+          child: Icon(icon, color: Colors.white, size: 22),
+        ),
       ),
     );
   }
@@ -237,16 +265,19 @@ class _SearchBar extends StatelessWidget {
 }
 
 class _FilterRow extends StatelessWidget {
-  const _FilterRow();
+  const _FilterRow({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final HomeCategory selected;
+  final ValueChanged<HomeCategory> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    const chips = [
-      ('All', true),
-      ('Unread 4', false),
-      ('Favourites', false),
-      ('Groups 4', false),
-      ('+', false),
+    const chips = <(String, HomeCategory)>[
+      ('Draws', HomeCategory.draws),
+      ('Results', HomeCategory.results),
     ];
 
     return SizedBox(
@@ -256,24 +287,25 @@ class _FilterRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         itemBuilder: (context, index) {
           final chip = chips[index];
-          final selected = chip.$2;
-          return Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: chip.$1 == '+' ? 12 : 14,
-              vertical: 8,
-            ),
-            decoration: BoxDecoration(
-              color: selected
-                  ? const Color(0xFF0D3D2E)
-                  : HomeView._chipInactive,
+          final isSelected = selected == chip.$2;
+          return Material(
+            color: isSelected
+                ? const Color(0xFF0D3D2E)
+                : HomeView._chipInactive,
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
               borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              chip.$1,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
+              onTap: () => onSelected(chip.$2),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                child: Text(
+                  chip.$1,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
               ),
             ),
           );
@@ -286,10 +318,14 @@ class _FilterRow extends StatelessWidget {
 }
 
 class _ChatList extends StatelessWidget {
-  const _ChatList();
+  const _ChatList({required this.category});
+
+  final HomeCategory category;
 
   @override
   Widget build(BuildContext context) {
+    final isResults = category == HomeCategory.results;
+
     return ListView.separated(
       padding: const EdgeInsets.only(top: 2, bottom: 8),
       itemCount: gameChats.length,
@@ -299,10 +335,17 @@ class _ChatList extends StatelessWidget {
       ),
       itemBuilder: (context, index) {
         final data = gameChats[index];
+        final snippet = isResults
+            ? 'Tap to view published results'
+            : data.snippet;
         return InkWell(
           onTap: () {
             Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => GameChatView(game: data)),
+              MaterialPageRoute<void>(
+                builder: (_) => isResults
+                    ? ResultsChatView(game: data)
+                    : GameChatView(game: data),
+              ),
             );
           },
           child: Padding(
@@ -353,13 +396,15 @@ class _ChatList extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              data.snippet,
+                              snippet,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: data.unread != null
-                                    ? const Color(0xFFB7BDC1)
-                                    : HomeView._muted,
+                                color: isResults
+                                    ? HomeView._muted
+                                    : (data.unread != null
+                                        ? const Color(0xFFB7BDC1)
+                                        : HomeView._muted),
                                 fontSize: 14,
                               ),
                             ),
@@ -377,15 +422,15 @@ class _ChatList extends StatelessWidget {
                       data.time,
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: data.unread != null
+                        fontWeight: !isResults && data.unread != null
                             ? FontWeight.w600
                             : FontWeight.w400,
-                        color: data.unread != null
+                        color: !isResults && data.unread != null
                             ? HomeView._green
                             : HomeView._muted,
                       ),
                     ),
-                    if (data.unread != null) ...[
+                    if (!isResults && data.unread != null) ...[
                       const SizedBox(height: 5),
                       Container(
                         height: 22,
@@ -438,10 +483,10 @@ class _BottomNav extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _NavEntry(
-            icon: Icons.update_outlined,
-            label: 'Updates',
-            selected: false,
-            showDot: true,
+            icon: Icons.home_rounded,
+            label: 'Home',
+            selected: true,
+            badge: '4',
           ),
           _NavEntry(icon: Icons.call_outlined, label: 'Calls', selected: false),
           _NavEntry(
@@ -450,10 +495,10 @@ class _BottomNav extends StatelessWidget {
             selected: false,
           ),
           _NavEntry(
-            icon: Icons.chat,
-            label: 'Chats',
-            selected: true,
-            badge: '4',
+            icon: Icons.update_outlined,
+            label: 'Updates',
+            selected: false,
+            showDot: true,
           ),
           _NavEntry(icon: null, label: 'You', selected: false, avatar: true),
         ],

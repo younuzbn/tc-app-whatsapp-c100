@@ -6,6 +6,8 @@ import '../auth/phone_login/phone_login_view.dart';
 import '../home/game_chat_data.dart';
 import 'admin_customer_chat_view.dart';
 import 'admin_game_chat_options_view.dart';
+import 'admin_referral_codes_view.dart';
+import 'admin_referral_tree_view.dart';
 
 class AdminHomeView extends StatefulWidget {
   const AdminHomeView({super.key});
@@ -44,6 +46,32 @@ class _AdminHomeViewState extends State<AdminHomeView> {
   @override
   Widget build(BuildContext context) {
     final items = <_AdminChatItem>[
+      _AdminChatItem(
+        title: 'Referral codes',
+        subtitle: 'Create and manage invite codes',
+        color: const Color(0xFF4B9B8B),
+        leadingIcon: Icons.card_giftcard,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AdminReferralCodesView(),
+            ),
+          );
+        },
+      ),
+      _AdminChatItem(
+        title: 'Users hierarchy',
+        subtitle: 'Browse users by referral tree',
+        color: const Color(0xFF3B82F6),
+        leadingIcon: Icons.account_tree_outlined,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AdminReferralTreeView(),
+            ),
+          );
+        },
+      ),
       for (final game in gameChats)
         _AdminChatItem(
           title: game.name,
@@ -146,7 +174,10 @@ class _AdminHomeViewState extends State<AdminHomeView> {
                     leading: CircleAvatar(
                       radius: 24,
                       backgroundColor: item.color,
-                      child: const Icon(Icons.chat_bubble, color: Colors.white),
+                      child: Icon(
+                        item.leadingIcon ?? Icons.chat_bubble,
+                        color: Colors.white,
+                      ),
                     ),
                     title: Text(
                       item.title,
@@ -206,6 +237,7 @@ class _AdminChatItem {
     required this.color,
     required this.onTap,
     this.trailingText,
+    this.leadingIcon,
   });
 
   final String title;
@@ -213,4 +245,5 @@ class _AdminChatItem {
   final Color color;
   final VoidCallback onTap;
   final String? trailingText;
+  final IconData? leadingIcon;
 }

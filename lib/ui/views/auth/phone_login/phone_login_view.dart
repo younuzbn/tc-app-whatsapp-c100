@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
 
+import '../../admin/admin_home_view.dart';
+import '../../home/home_view.dart';
 import '../otp_verification/otp_verification_view.dart';
 import 'phone_login_viewmodel.dart';
 
@@ -37,10 +39,10 @@ class PhoneLoginView extends StackedView<PhoneLoginViewModel> {
                 ),
               ),
               const SizedBox(height: 18),
-              Text(
+              const Text(
                 'Enter your phone number',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF128C7E),
@@ -48,24 +50,16 @@ class PhoneLoginView extends StackedView<PhoneLoginViewModel> {
               ),
               const SizedBox(height: 20),
               Text(
-                'WhatsApp will need to verify your phone number.',
+                viewModel.showPasswordFields
+                    ? (viewModel.step == PhoneLoginStep.passwordRegister
+                          ? 'Create a password to finish signing up.'
+                          : 'Enter your password to continue.')
+                    : 'Win App will need your phone number to sign you in.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: const Color(0xFF667085),
                   fontSize: 14,
                   height: 1.25,
-                ),
-              ),
-              const SizedBox(height: 4),
-              RichText(
-                textAlign: TextAlign.center,
-                text: TextSpan(
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFF667085),
-                    fontSize: 14,
-                    height: 1.25,
-                  ),
-                  children: const [TextSpan(text: "What's my number?")],
                 ),
               ),
               const SizedBox(height: 18),
@@ -80,6 +74,7 @@ class PhoneLoginView extends StackedView<PhoneLoginViewModel> {
                     flex: 5,
                     child: TextField(
                       controller: viewModel.phoneController,
+                      enabled: viewModel.step == PhoneLoginStep.phone,
                       keyboardType: TextInputType.phone,
                       style: const TextStyle(
                         color: Color(0xFF1D2939),
@@ -112,44 +107,118 @@ class PhoneLoginView extends StackedView<PhoneLoginViewModel> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Carrier charges may apply',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF667085),
-                  fontSize: 11,
-                ),
-              ),
-              const SizedBox(height: 28),
-              TextField(
-                controller: viewModel.referralController,
-                textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(
-                  isDense: true,
-                  contentPadding: EdgeInsets.only(bottom: 8),
-                  hintText: 'REFERRAL CODE (OPTIONAL)',
-                  hintStyle: TextStyle(
-                    fontSize: 12,
-                    letterSpacing: 2.2,
-                    color: Color(0xFF98A2B3),
-                  ),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Color(0xFFE4E7EC),
-                      width: 1.5,
+              if (viewModel.step == PhoneLoginStep.phone) ...[
+                const SizedBox(height: 20),
+                TextField(
+                  controller: viewModel.referralController,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.only(bottom: 8),
+                    hintText: 'REFERRAL CODE (REQUIRED FOR NEW USERS)',
+                    hintStyle: TextStyle(
+                      fontSize: 12,
+                      letterSpacing: 1.4,
+                      color: Color(0xFF98A2B3),
                     ),
-                  ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Color(0xFF14B8A6),
-                      width: 1.5,
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Color(0xFFE4E7EC),
+                        width: 1.5,
+                      ),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Color(0xFF14B8A6),
+                        width: 1.5,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 96),
-              const SizedBox(height: 18),
+              ],
+              if (viewModel.showPasswordFields) ...[
+                const SizedBox(height: 20),
+                TextField(
+                  controller: viewModel.passwordController,
+                  obscureText: viewModel.obscurePassword,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: const EdgeInsets.only(bottom: 8),
+                    hintText: 'PASSWORD',
+                    hintStyle: const TextStyle(
+                      fontSize: 12,
+                      letterSpacing: 1.4,
+                      color: Color(0xFF98A2B3),
+                    ),
+                    suffixIcon: IconButton(
+                      onPressed: viewModel.toggleObscurePassword,
+                      icon: Icon(
+                        viewModel.obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: const Color(0xFF98A2B3),
+                      ),
+                    ),
+                    enabledBorder: const UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Color(0xFFE4E7EC),
+                        width: 1.5,
+                      ),
+                    ),
+                    focusedBorder: const UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Color(0xFF14B8A6),
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              if (viewModel.showConfirmPassword) ...[
+                const SizedBox(height: 20),
+                TextField(
+                  controller: viewModel.confirmPasswordController,
+                  obscureText: viewModel.obscurePassword,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.only(bottom: 8),
+                    hintText: 'CONFIRM PASSWORD',
+                    hintStyle: TextStyle(
+                      fontSize: 12,
+                      letterSpacing: 1.4,
+                      color: Color(0xFF98A2B3),
+                    ),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Color(0xFFE4E7EC),
+                        width: 1.5,
+                      ),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Color(0xFF14B8A6),
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              if (viewModel.step != PhoneLoginStep.phone) ...[
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: viewModel.isBusy
+                      ? null
+                      : () {
+                          viewModel.step = PhoneLoginStep.phone;
+                          viewModel.passwordController.clear();
+                          viewModel.confirmPasswordController.clear();
+                          viewModel.errorMessage = null;
+                          viewModel.notifyListeners();
+                        },
+                  child: const Text('Change number'),
+                ),
+              ],
+              const SizedBox(height: 40),
               if (viewModel.errorMessage != null) ...[
                 Text(
                   viewModel.errorMessage!,
@@ -164,7 +233,7 @@ class PhoneLoginView extends StackedView<PhoneLoginViewModel> {
               ],
               Center(
                 child: SizedBox(
-                  width: 108,
+                  width: 120,
                   height: 42,
                   child: FilledButton(
                     style: FilledButton.styleFrom(
@@ -177,19 +246,37 @@ class PhoneLoginView extends StackedView<PhoneLoginViewModel> {
                     onPressed: viewModel.isBusy
                         ? null
                         : () async {
-                            final success = await viewModel.requestOtp();
-                            if (!context.mounted || !success) {
+                            final result = await viewModel.continueFlow();
+                            if (!context.mounted) return;
+
+                            if (result.kind == PhoneLoginResultKind.goToOtp) {
+                              await Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => OtpVerificationView(
+                                    countryCode: viewModel.countryCode,
+                                    phoneNumber:
+                                        viewModel.sanitizedPhoneNumber,
+                                  ),
+                                ),
+                              );
                               return;
                             }
 
-                            await Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => OtpVerificationView(
-                                  countryCode: viewModel.countryCode,
-                                  phoneNumber: viewModel.sanitizedPhoneNumber,
+                            if (result.kind == PhoneLoginResultKind.loggedIn &&
+                                result.authResult != null) {
+                              final auth = result.authResult!;
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => auth.isAdmin
+                                      ? const AdminHomeView()
+                                      : HomeView(
+                                          displayPhoneNumber:
+                                              auth.displayPhoneNumber,
+                                        ),
                                 ),
-                              ),
-                            );
+                                (route) => false,
+                              );
+                            }
                           },
                     child: viewModel.isBusy
                         ? const SizedBox(
@@ -200,9 +287,9 @@ class PhoneLoginView extends StackedView<PhoneLoginViewModel> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'NEXT',
-                            style: TextStyle(
+                        : Text(
+                            viewModel.primaryButtonLabel,
+                            style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 0.4,
@@ -228,8 +315,8 @@ class _CountrySelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: const [
+    return const Column(
+      children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

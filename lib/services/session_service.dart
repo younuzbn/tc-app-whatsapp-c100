@@ -4,6 +4,7 @@ class SessionService {
   static String? displayPhoneNumber;
   static String? userId;
   static String? role;
+  static String? referralCode;
   static bool isAdmin = false;
 
   static bool get isLoggedIn => authToken != null && authToken!.isNotEmpty;
@@ -14,6 +15,7 @@ class SessionService {
     required String sessionDisplayPhoneNumber,
     String? sessionUserId,
     String? sessionRole,
+    String? sessionReferralCode,
     bool sessionIsAdmin = false,
   }) {
     authToken = token;
@@ -21,6 +23,7 @@ class SessionService {
     displayPhoneNumber = sessionDisplayPhoneNumber;
     userId = sessionUserId;
     role = sessionRole;
+    referralCode = sessionReferralCode;
     isAdmin = sessionIsAdmin;
   }
 
@@ -30,6 +33,7 @@ class SessionService {
     displayPhoneNumber = null;
     userId = null;
     role = null;
+    referralCode = null;
     isAdmin = false;
   }
 }

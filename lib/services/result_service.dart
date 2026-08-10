@@ -73,6 +73,69 @@ class ResultService {
     return GameResultData.fromJson(results.first as Map<String, dynamic>);
   }
 
+  /// Published results for a game (newest first from API; caller may reverse for chat).
+  Future<List<GameResultData>> listResultsForTimeSlot({
+    required String timeSlot,
+    int limit = 60,
+  }) async {
+    final data = await _request(
+      '/api/result/$timeSlot?limit=$limit',
+      method: 'GET',
+    );
+    final results =
+        ((data['data'] as Map<String, dynamic>?)?['results'] as List<dynamic>?) ??
+        const [];
+    return results
+        .whereType<Map<String, dynamic>>()
+        .map(GameResultData.fromJson)
+        .toList();
+  }
+
+  static const List<String> topFieldKeys = <String>[
+    'firstprice',
+    'secondprice',
+    'thirdprice',
+    'fourthprice',
+    'fifthplace',
+  ];
+
+  static final List<String> bottomFieldKeys = List<String>.generate(
+    30,
+    (index) => 'field${index + 6}',
+  );
+
+  static List<String> orderedValues(
+    GameResultData result, {
+    required List<String> keys,
+  }) {
+    return keys.map((key) => result.fields[key] ?? '').toList();
+  }
+
+  static String formatResultDateLabel(GameResultData result) {
+    final date = result.resultDate;
+    if (date == null) return result.timeSlot.toUpperCase();
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/'
+        '${date.year} · ${result.timeSlot.toUpperCase()}';
+  }
+
+  /// Plain-text layout for share/copy (5 values, blank line, then 30 in rows of 5).
+  static String formatResultAsText(GameResultData result) {
+    final top = orderedValues(result, keys: topFieldKeys);
+    final bottom = orderedValues(result, keys: bottomFieldKeys);
+    final lines = <String>[
+      formatResultDateLabel(result),
+      '',
+      top.map((v) => v.isEmpty ? '-' : v).join('  '),
+      '',
+    ];
+    for (var i = 0; i < bottom.length; i += 5) {
+      final row = bottom.sublist(i, i + 5).map((v) => v.isEmpty ? '-' : v);
+      lines.add(row.join('  '));
+    }
+    return lines.join('\n');
+  }
+
   Future<void> createResult({
     required String timeSlot,
     required DateTime date,

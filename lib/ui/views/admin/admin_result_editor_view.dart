@@ -26,6 +26,24 @@ class _AdminResultEditorViewState extends State<AdminResultEditorView> {
   bool _saving = false;
   String? _message;
 
+  static const List<String> _topFields = <String>[
+    'firstprice',
+    'secondprice',
+    'thirdprice',
+    'fourthprice',
+    'fifthplace',
+  ];
+
+  static final List<String> _bottomFields = List<String>.generate(
+    30,
+    (index) => 'field${index + 6}',
+  );
+
+  static final List<String> _resultFields = <String>[
+    ..._topFields,
+    ..._bottomFields,
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -36,15 +54,6 @@ class _AdminResultEditorViewState extends State<AdminResultEditorView> {
       _loadExisting();
     }
   }
-
-  static final List<String> _resultFields = <String>[
-    'firstprice',
-    'secondprice',
-    'thirdprice',
-    'fourthprice',
-    'fifthplace',
-    ...List<String>.generate(30, (index) => 'field${index + 6}'),
-  ];
 
   Future<void> _loadExisting() async {
     setState(() => _loading = true);
@@ -132,18 +141,48 @@ class _AdminResultEditorViewState extends State<AdminResultEditorView> {
     super.dispose();
   }
 
+  Widget _fieldCell(String field) {
+    return TextField(
+      controller: _controllers[field],
+      keyboardType: TextInputType.number,
+      textAlign: TextAlign.center,
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      decoration: const InputDecoration(
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        border: OutlineInputBorder(),
+      ),
+    );
+  }
+
+  Widget _fiveRow(List<String> fields) {
+    return Row(
+      children: [
+        for (var i = 0; i < fields.length; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          Expanded(child: _fieldCell(fields[i])),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final title = widget.editMode ? 'Edit Result' : 'Add Result';
     final dateLabel =
         '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
 
+    final bottomRows = <List<String>>[];
+    for (var i = 0; i < _bottomFields.length; i += 5) {
+      bottomRows.add(_bottomFields.sublist(i, i + 5));
+    }
+
     return Scaffold(
       appBar: AppBar(title: Text('$title - ${widget.game.name}')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               children: [
                 Row(
                   children: [
@@ -164,18 +203,16 @@ class _AdminResultEditorViewState extends State<AdminResultEditorView> {
                   Text(_message!, style: const TextStyle(fontSize: 12)),
                   const SizedBox(height: 10),
                 ],
-                for (final field in _resultFields)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: TextField(
-                      controller: _controllers[field],
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: field.toUpperCase(),
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 12),
+                _fiveRow(_topFields),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 14),
+                  child: Divider(thickness: 1.2, height: 1),
+                ),
+                for (var i = 0; i < bottomRows.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 6),
+                  _fiveRow(bottomRows[i]),
+                ],
+                const SizedBox(height: 16),
                 FilledButton(
                   onPressed: _saving ? null : _save,
                   child: Text(_saving ? 'Saving...' : title),
