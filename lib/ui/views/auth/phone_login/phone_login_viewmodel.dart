@@ -35,8 +35,15 @@ class PhoneLoginViewModel extends BaseViewModel {
 
   String get countryCode => '91';
 
+  /// Digits only; if more than 10 (e.g. pasted +91 / 00…), keep the last 10.
+  static String normalizePhoneDigits(String input) {
+    final digits = input.replaceAll(RegExp(r'\D'), '');
+    if (digits.length <= 10) return digits;
+    return digits.substring(digits.length - 10);
+  }
+
   String get sanitizedPhoneNumber =>
-      phoneController.text.replaceAll(RegExp(r'\D'), '');
+      normalizePhoneDigits(phoneController.text);
 
   String get sanitizedReferralCode =>
       referralController.text.trim().toUpperCase().replaceAll(

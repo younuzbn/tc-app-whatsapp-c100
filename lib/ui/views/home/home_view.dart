@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
 
 import '../../../services/session_service.dart';
-import '../auth/phone_login/phone_login_view.dart';
+import '../entries/my_entries_view.dart';
 import '../game_chat/game_chat_view.dart';
-import '../results/results_chat_view.dart';
+import '../notifications/notifications_view.dart';
+import '../profile/profile_view.dart';
+import '../refer/refer_and_earn_view.dart';
+import '../results/results_list_view.dart';
 import '../wallet/wallet_view.dart';
+import '../winning/winning_chat_view.dart';
 import 'game_chat_data.dart';
 import 'home_viewmodel.dart';
 
@@ -15,7 +19,6 @@ class HomeView extends StackedView<HomeViewModel> {
   final String displayPhoneNumber;
 
   static const Color _bg = Color(0xFF0B141A);
-  static const Color _surface = Color(0xFF111B21);
   static const Color _chipInactive = Color(0xFF1F2C34);
   static const Color _green = Color(0xFF25D366);
   static const Color _muted = Color(0xFF8696A0);
@@ -31,6 +34,17 @@ class HomeView extends StackedView<HomeViewModel> {
               displayPhoneNumber: viewModel.displayPhoneNumber,
               walletChipText: viewModel.walletChipText,
               walletLoading: viewModel.walletLoading,
+              unreadNotifications: viewModel.unreadNotifications,
+              onNotificationsTap: () async {
+                await Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const NotificationsView(),
+                  ),
+                );
+                if (context.mounted) {
+                  await viewModel.refreshNotifications();
+                }
+              },
               onWalletTap: () async {
                 await Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(builder: (_) => const WalletView()),
@@ -39,46 +53,26 @@ class HomeView extends StackedView<HomeViewModel> {
                   await viewModel.refreshWallet();
                 }
               },
-              onLogout: () {
-                SessionService.clear();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const PhoneLoginView(),
-                  ),
-                  (route) => false,
-                );
-              },
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Home',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 34,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
+            Expanded(
+              child: IndexedStack(
+                index: viewModel.selectedTab.index,
+                children: [
+                  _HomeTabBody(viewModel: viewModel),
+                  ReferAndEarnView(
+                    embedded: true,
+                    referralCode: SessionService.referralCode ?? '',
                   ),
-                ),
+                  const ProfileView(embedded: true),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: _SearchBar(),
+            _BottomNav(
+              selected: viewModel.selectedTab,
+              onDigits: () => viewModel.selectTab(HomeTab.digits),
+              onRefer: () => viewModel.selectTab(HomeTab.refer),
+              onProfile: () => viewModel.selectTab(HomeTab.profile),
             ),
-            const SizedBox(height: 12),
-            _FilterRow(
-              selected: viewModel.selectedCategory,
-              onSelected: viewModel.selectCategory,
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: _ChatList(category: viewModel.selectedCategory),
-            ),
-            const _BottomNav(),
           ],
         ),
       ),
@@ -90,42 +84,117 @@ class HomeView extends StackedView<HomeViewModel> {
       HomeViewModel(displayPhoneNumber: displayPhoneNumber);
 }
 
+class _HomeTabBody extends StatelessWidget {
+  const _HomeTabBody({required this.viewModel});
+
+  final HomeViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        _FilterRow(
+          selected: viewModel.selectedCategory,
+          onSelected: viewModel.selectCategory,
+        ),
+        const _TodayDateLabel(),
+        Expanded(
+          child: _ChatList(
+            category: viewModel.selectedCategory,
+            viewModel: viewModel,
+            onReturned: viewModel.refreshHome,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TodayDateLabel extends StatelessWidget {
+  const _TodayDateLabel();
+
+  static const _weekdays = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+
+  static const _months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final label =
+        '${_weekdays[now.weekday - 1]}, ${now.day} ${_months[now.month - 1]}';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: HomeView._muted,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.displayPhoneNumber,
     required this.walletChipText,
     required this.walletLoading,
+    required this.unreadNotifications,
     required this.onWalletTap,
-    required this.onLogout,
+    required this.onNotificationsTap,
   });
 
   final String displayPhoneNumber;
   final String walletChipText;
   final bool walletLoading;
+  final int unreadNotifications;
   final Future<void> Function() onWalletTap;
-  final VoidCallback onLogout;
+  final Future<void> Function() onNotificationsTap;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 10, 6),
+      padding: const EdgeInsets.fromLTRB(16, 16, 10, 16),
       child: Row(
         children: [
           const Text(
-            'Win App',
+            'WIN APP',
             style: TextStyle(
-              color: Colors.white,
+              color: HomeView._green,
               fontSize: 22,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.3,
             ),
           ),
           const Spacer(),
-          _CircleIconButton(
-            icon: Icons.notifications_none_rounded,
-            onTap: () {},
-          ),
-          const SizedBox(width: 8),
           Material(
             color: HomeView._chipInactive,
             borderRadius: BorderRadius.circular(20),
@@ -167,41 +236,9 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          PopupMenuButton<String>(
-            color: HomeView._surface,
-            padding: EdgeInsets.zero,
-            offset: const Offset(0, 40),
-            onSelected: (value) {
-              if (value == 'logout') {
-                onLogout();
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem<String>(
-                enabled: false,
-                child: Text(
-                  displayPhoneNumber,
-                  style: const TextStyle(color: HomeView._muted, fontSize: 13),
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'logout',
-                child: Text('Log out', style: TextStyle(color: Colors.white)),
-              ),
-            ],
-            child: Material(
-              color: HomeView._chipInactive,
-              shape: const CircleBorder(),
-              child: const SizedBox(
-                width: 38,
-                height: 38,
-                child: Icon(
-                  Icons.person_outline_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-            ),
+          _NotificationButton(
+            unread: unreadNotifications,
+            onTap: () => onNotificationsTap(),
           ),
         ],
       ),
@@ -209,13 +246,10 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-class _CircleIconButton extends StatelessWidget {
-  const _CircleIconButton({
-    required this.icon,
-    required this.onTap,
-  });
+class _NotificationButton extends StatelessWidget {
+  const _NotificationButton({required this.unread, required this.onTap});
 
-  final IconData icon;
+  final int unread;
   final VoidCallback onTap;
 
   @override
@@ -229,36 +263,39 @@ class _CircleIconButton extends StatelessWidget {
         child: SizedBox(
           width: 38,
           height: 38,
-          child: Icon(icon, color: Colors.white, size: 22),
-        ),
-      ),
-    );
-  }
-}
-
-class _SearchBar extends StatelessWidget {
-  const _SearchBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 40,
-      decoration: BoxDecoration(
-        color: HomeView._chipInactive,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: const Row(
-        children: [
-          Icon(Icons.search, color: HomeView._muted, size: 22),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Ask Meta AI or Search',
-              style: TextStyle(color: HomeView._muted, fontSize: 15),
-            ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Center(
+                child: Icon(
+                  Icons.notifications_none_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+              if (unread > 0)
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: HomeView._green,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      unread > 9 ? '9+' : '$unread',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -276,77 +313,147 @@ class _FilterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const chips = <(String, HomeCategory)>[
-      ('Draws', HomeCategory.draws),
-      ('Results', HomeCategory.results),
+      ('DRAWS', HomeCategory.draws),
+      ('RESULTS', HomeCategory.results),
+      ('WINNINGS', HomeCategory.winning),
+      ('MY ENTRIES', HomeCategory.myEntries),
     ];
 
-    return SizedBox(
-      height: 36,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemBuilder: (context, index) {
-          final chip = chips[index];
-          final isSelected = selected == chip.$2;
-          return Material(
-            color: isSelected
-                ? const Color(0xFF0D3D2E)
-                : HomeView._chipInactive,
-            borderRadius: BorderRadius.circular(20),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () => onSelected(chip.$2),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                child: Text(
-                  chip.$1,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0xFF1F2C34), width: 1),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          children: [
+            for (final chip in chips)
+              Expanded(
+                child: InkWell(
+                  onTap: () => onSelected(chip.$2),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(2, 16, 2, 16),
+                        child: Text(
+                          chip.$1,
+                          maxLines: 1,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: selected == chip.$2
+                                ? Colors.white
+                                : HomeView._muted,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        height: 2,
+                        color: selected == chip.$2
+                            ? HomeView._green
+                            : Colors.transparent,
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
-          );
-        },
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemCount: chips.length,
+          ],
+        ),
       ),
     );
   }
 }
 
 class _ChatList extends StatelessWidget {
-  const _ChatList({required this.category});
+  const _ChatList({
+    required this.category,
+    required this.viewModel,
+    required this.onReturned,
+  });
 
   final HomeCategory category;
+  final HomeViewModel viewModel;
+  final Future<void> Function() onReturned;
 
   @override
   Widget build(BuildContext context) {
-    final isResults = category == HomeCategory.results;
+    if (category == HomeCategory.myEntries) {
+      return const MyEntriesView(embedded: true);
+    }
+    if (category == HomeCategory.winning) {
+      return const WinningChatView(embedded: true);
+    }
+    if (category == HomeCategory.results) {
+      return const ResultsListView(embedded: true);
+    }
+
+    final isDraws = category == HomeCategory.draws;
+
+    String snippetFor(GameChatData data) {
+      switch (category) {
+        case HomeCategory.draws:
+          return viewModel.drawSnippet(data);
+        case HomeCategory.results:
+          return 'Tap to view published results';
+        case HomeCategory.winning:
+          return 'Tap to view your winning report';
+        case HomeCategory.myEntries:
+          return 'Tap to view your saved entries';
+      }
+    }
+
+    Widget pageFor(GameChatData data) {
+      switch (category) {
+        case HomeCategory.draws:
+          return GameChatView(game: data);
+        case HomeCategory.results:
+          return const ResultsListView();
+        case HomeCategory.winning:
+          return WinningChatView(game: data);
+        case HomeCategory.myEntries:
+          return MyEntriesView(game: data);
+      }
+    }
 
     return ListView.separated(
-      padding: const EdgeInsets.only(top: 2, bottom: 8),
-      itemCount: gameChats.length,
-      separatorBuilder: (context, index) => const Padding(
-        padding: EdgeInsets.only(left: 78),
-        child: Divider(height: 1, color: Color(0xFF141414)),
-      ),
+      padding: const EdgeInsets.only(top: 2, bottom: 16),
+      itemCount: gameChats.length + (isDraws ? 1 : 0),
+      separatorBuilder: (context, index) {
+        if (isDraws && index >= gameChats.length - 1) {
+          return const SizedBox.shrink();
+        }
+        return const Padding(
+          padding: EdgeInsets.only(left: 78),
+          child: Divider(height: 1, color: Color(0xFF141414)),
+        );
+      },
       itemBuilder: (context, index) {
+        if (isDraws && index == gameChats.length) {
+          return const _DrawsHintBox();
+        }
         final data = gameChats[index];
-        final snippet = isResults
-            ? 'Tap to view published results'
-            : data.snippet;
+        final snippet = snippetFor(data);
+        final countingDown = isDraws && viewModel.isDrawCountingDown(data);
+        final closed = isDraws && viewModel.isDrawClosed(data);
+        final resultOut = isDraws && viewModel.isResultPublished(data);
+        final unreadCount = isDraws ? viewModel.drawUnreadCount(data) : 0;
+        final hasUnread = unreadCount > 0;
+        final timeLabel = isDraws ? viewModel.drawTimeLabel(data) : data.time;
         return InkWell(
-          onTap: () {
-            Navigator.of(context).push(
+          onTap: () async {
+            await Navigator.of(context).push<void>(
               MaterialPageRoute<void>(
-                builder: (_) => isResults
-                    ? ResultsChatView(game: data)
-                    : GameChatView(game: data),
+                builder: (_) => pageFor(data),
               ),
             );
+            if (isDraws) {
+              await viewModel.markDrawAlertsSeen(data.timeSlot);
+            }
+            await onReturned();
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -400,11 +507,13 @@ class _ChatList extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: isResults
+                                color: resultOut
+                                    ? HomeView._green
+                                    : closed
                                     ? HomeView._muted
-                                    : (data.unread != null
-                                        ? const Color(0xFFB7BDC1)
-                                        : HomeView._muted),
+                                    : hasUnread
+                                    ? const Color(0xFFB7BDC1)
+                                    : HomeView._muted,
                                 fontSize: 14,
                               ),
                             ),
@@ -415,48 +524,52 @@ class _ChatList extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      data.time,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: !isResults && data.unread != null
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        color: !isResults && data.unread != null
-                            ? HomeView._green
-                            : HomeView._muted,
-                      ),
-                    ),
-                    if (!isResults && data.unread != null) ...[
-                      const SizedBox(height: 5),
-                      Container(
-                        height: 22,
-                        alignment: Alignment.center,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: '${data.unread}'.length > 1 ? 6 : 0,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 22,
-                          minHeight: 22,
-                        ),
-                        decoration: BoxDecoration(
-                          color: HomeView._green,
-                          borderRadius: BorderRadius.circular(11),
-                        ),
+                SizedBox(
+                  width: 108,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
                         child: Text(
-                          '${data.unread}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                          timeLabel,
+                          maxLines: 1,
+                          softWrap: false,
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: countingDown
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: countingDown
+                                ? HomeView._green
+                                : HomeView._muted,
                           ),
                         ),
                       ),
+                      if (hasUnread) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          width: 22,
+                          height: 22,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            color: HomeView._green,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            unreadCount > 9 ? '9+' : '$unreadCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ],
             ),
@@ -467,8 +580,59 @@ class _ChatList extends StatelessWidget {
   }
 }
 
+class _DrawsHintBox extends StatelessWidget {
+  const _DrawsHintBox();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF12261C),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF1F6B45)),
+        ),
+        child: const Row(
+          children: [
+            Icon(
+              Icons.touch_app_rounded,
+              color: HomeView._green,
+              size: 28,
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Tap a draw to open the chat and place entries',
+                style: TextStyle(
+                  color: Color(0xFFD1D5DB),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _BottomNav extends StatelessWidget {
-  const _BottomNav();
+  const _BottomNav({
+    required this.selected,
+    required this.onDigits,
+    required this.onRefer,
+    required this.onProfile,
+  });
+
+  final HomeTab selected;
+  final VoidCallback onDigits;
+  final VoidCallback onRefer;
+  final VoidCallback onProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -476,31 +640,30 @@ class _BottomNav extends StatelessWidget {
     return Container(
       padding: EdgeInsets.only(top: 6, bottom: bottom > 0 ? bottom : 8),
       decoration: const BoxDecoration(
-        color: Color(0xFF000000),
+        color: HomeView._bg,
         border: Border(top: BorderSide(color: Color(0xFF1A1A1A))),
       ),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _NavEntry(
-            icon: Icons.home_rounded,
-            label: 'Home',
-            selected: true,
-            badge: '4',
-          ),
-          _NavEntry(icon: Icons.call_outlined, label: 'Calls', selected: false),
-          _NavEntry(
-            icon: Icons.groups_2_outlined,
-            label: 'Communities',
-            selected: false,
+            icon: Icons.grid_view_rounded,
+            label: '3 DIGITS',
+            selected: selected == HomeTab.digits,
+            onTap: onDigits,
           ),
           _NavEntry(
-            icon: Icons.update_outlined,
-            label: 'Updates',
-            selected: false,
-            showDot: true,
+            icon: Icons.card_giftcard_outlined,
+            label: 'Refer & Earn',
+            selected: selected == HomeTab.refer,
+            onTap: onRefer,
           ),
-          _NavEntry(icon: null, label: 'You', selected: false, avatar: true),
+          _NavEntry(
+            icon: Icons.person_outline_rounded,
+            label: 'Profile',
+            selected: selected == HomeTab.profile,
+            onTap: onProfile,
+          ),
         ],
       ),
     );
@@ -512,89 +675,35 @@ class _NavEntry extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.selected,
-    this.badge,
-    this.avatar = false,
-    this.showDot = false,
+    required this.onTap,
   });
 
-  final IconData? icon;
+  final IconData icon;
   final String label;
   final bool selected;
-  final String? badge;
-  final bool avatar;
-  final bool showDot;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? Colors.white : HomeView._muted;
+    final color = selected ? HomeView._green : HomeView._muted;
     return Expanded(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              if (avatar)
-                Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF2A3942),
-                    border: Border.all(color: color.withValues(alpha: 0.5)),
-                  ),
-                  child: Icon(Icons.person, size: 16, color: color),
-                )
-              else
-                Icon(icon, color: color, size: 24),
-              if (showDot)
-                Positioned(
-                  right: -2,
-                  top: -2,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: HomeView._green,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              if (badge != null)
-                Positioned(
-                  right: -10,
-                  top: -8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: HomeView._green,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      badge!,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

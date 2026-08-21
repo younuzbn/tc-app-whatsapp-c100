@@ -1,10 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:stacked/stacked.dart';
 
 import '../../admin/admin_home_view.dart';
 import '../../home/home_view.dart';
 import '../otp_verification/otp_verification_view.dart';
 import 'phone_login_viewmodel.dart';
+
+class _PhoneNumberInputFormatter extends TextInputFormatter {
+  const _PhoneNumberInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final oldDigits = oldValue.text.replaceAll(RegExp(r'\D'), '');
+
+    String normalized;
+    if (digits.length <= 10) {
+      normalized = digits;
+    } else if (oldDigits.length == 10 && digits.length == oldDigits.length + 1) {
+      // Extra keystroke while already at 10 — ignore it.
+      normalized = oldDigits;
+    } else {
+      // Paste with country code (+91, 00…, spaces) — keep last 10 digits.
+      normalized = digits.substring(digits.length - 10);
+    }
+
+    return TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
+    );
+  }
+}
 
 class PhoneLoginView extends StackedView<PhoneLoginViewModel> {
   const PhoneLoginView({super.key});
@@ -75,7 +105,8 @@ class PhoneLoginView extends StackedView<PhoneLoginViewModel> {
                     child: TextField(
                       controller: viewModel.phoneController,
                       enabled: viewModel.step == PhoneLoginStep.phone,
-                      keyboardType: TextInputType.phone,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: const [_PhoneNumberInputFormatter()],
                       style: const TextStyle(
                         color: Color(0xFF1D2939),
                         fontSize: 15,

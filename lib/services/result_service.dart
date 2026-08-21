@@ -12,12 +12,14 @@ class GameResultData {
     required this.id,
     required this.timeSlot,
     required this.resultDate,
+    required this.createdAt,
     required this.fields,
   });
 
   final String id;
   final String timeSlot;
   final DateTime? resultDate;
+  final DateTime? createdAt;
   final Map<String, String> fields;
 
   factory GameResultData.fromJson(Map<String, dynamic> json) {
@@ -47,6 +49,9 @@ class GameResultData {
       id: json['_id']?.toString() ?? '',
       timeSlot: json['timeSlot']?.toString() ?? '',
       resultDate: DateTime.tryParse(json['resultDate']?.toString() ?? ''),
+      createdAt: DateTime.tryParse(
+        json['createdAt']?.toString() ?? json['updatedAt']?.toString() ?? '',
+      ),
       fields: fieldMap,
     );
   }
@@ -71,6 +76,21 @@ class ResultService {
       return null;
     }
     return GameResultData.fromJson(results.first as Map<String, dynamic>);
+  }
+
+  /// All published results across games, newest first.
+  Future<List<GameResultData>> listAllResults({int limit = 60}) async {
+    final data = await _request(
+      '/api/result?limit=$limit',
+      method: 'GET',
+    );
+    final results =
+        ((data['data'] as Map<String, dynamic>?)?['results'] as List<dynamic>?) ??
+        const [];
+    return results
+        .whereType<Map<String, dynamic>>()
+        .map(GameResultData.fromJson)
+        .toList();
   }
 
   /// Published results for a game (newest first from API; caller may reverse for chat).

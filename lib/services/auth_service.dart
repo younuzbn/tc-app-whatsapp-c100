@@ -28,6 +28,7 @@ class MobileAuthResult {
     required this.isAdmin,
     this.role,
     this.referralCode,
+    this.name,
   });
 
   final String displayPhoneNumber;
@@ -37,6 +38,33 @@ class MobileAuthResult {
   final bool isAdmin;
   final String? role;
   final String? referralCode;
+  final String? name;
+}
+
+class MobileProfile {
+  const MobileProfile({
+    required this.name,
+    required this.displayPhoneNumber,
+    required this.phoneNumber,
+    required this.referralCode,
+    required this.memberSince,
+    required this.isActive,
+    required this.entryBalance,
+    required this.totalWinnings,
+    required this.referralEarned,
+    required this.inviteCount,
+  });
+
+  final String name;
+  final String displayPhoneNumber;
+  final String phoneNumber;
+  final String referralCode;
+  final DateTime? memberSince;
+  final bool isActive;
+  final double entryBalance;
+  final double totalWinnings;
+  final double referralEarned;
+  final int inviteCount;
 }
 
 class AuthService {
@@ -142,9 +170,14 @@ class AuthService {
   }
 
   Future<String?> fetchMyReferralCode() async {
+    final profile = await fetchProfile();
+    return profile?.referralCode ?? SessionService.referralCode;
+  }
+
+  Future<MobileProfile?> fetchProfile() async {
     final token = SessionService.authToken;
     if (token == null || token.isEmpty || SessionService.isAdmin) {
-      return SessionService.referralCode;
+      return null;
     }
     try {
       final response = await http
@@ -158,16 +191,56 @@ class AuthService {
           .timeout(const Duration(seconds: 8));
       final body = _decodeBody(response.body);
       if (response.statusCode >= 400 || body['success'] != true) {
-        return SessionService.referralCode;
+        return null;
       }
       final data = body['data'] as Map<String, dynamic>? ?? {};
       final code = data['referralCode']?.toString();
       if (code != null && code.isNotEmpty) {
         SessionService.referralCode = code;
       }
-      return SessionService.referralCode;
+      final wallet = data['wallet'] as Map<String, dynamic>? ?? {};
+      final referral = data['referral'] as Map<String, dynamic>? ?? {};
+      return MobileProfile(
+        name: data['name']?.toString() ?? '',
+        displayPhoneNumber:
+            data['displayPhoneNumber']?.toString() ??
+            SessionService.displayPhoneNumber ??
+            '',
+        phoneNumber: data['phoneNumber']?.toString() ?? '',
+        referralCode: code ?? SessionService.referralCode ?? '',
+        memberSince: DateTime.tryParse(data['memberSince']?.toString() ?? ''),
+        isActive: data['isActive'] != false,
+        entryBalance:
+            double.tryParse(wallet['available']?.toString() ?? '') ?? 0,
+        totalWinnings:
+            double.tryParse(wallet['winningsBalance']?.toString() ?? '') ?? 0,
+        referralEarned:
+            double.tryParse(referral['referralEarned']?.toString() ?? '') ?? 0,
+        inviteCount: int.tryParse(referral['inviteCount']?.toString() ?? '') ?? 0,
+      );
     } catch (_) {
-      return SessionService.referralCode;
+      return null;
+    }
+  }
+
+  Future<void> updateProfile({required String name}) async {
+    final token = SessionService.authToken;
+    if (token == null || token.isEmpty) {
+      throw Exception('Login required');
+    }
+    final response = await http
+        .put(
+          Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/profile'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({'name': name}),
+        )
+        .timeout(const Duration(seconds: 8));
+    final body = _decodeBody(response.body);
+    if (response.statusCode >= 400 || body['success'] != true) {
+      throw Exception(body['message'] ?? 'Failed to update profile');
     }
   }
 

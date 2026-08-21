@@ -31,7 +31,6 @@ const List<GameChatData> gameChats = [
     avatarText: '1',
     avatarColor: Color(0xFF77C34F),
     closeLabel: 'Closes at 1:00 PM',
-    unread: 1,
   ),
   GameChatData(
     name: 'KERALA 3PM',
@@ -41,7 +40,6 @@ const List<GameChatData> gameChats = [
     avatarText: '3',
     avatarColor: Color(0xFFFFC83D),
     closeLabel: 'Closes at 3:00 PM',
-    unread: 1,
   ),
   GameChatData(
     name: 'DEAR 6PM',
@@ -51,7 +49,6 @@ const List<GameChatData> gameChats = [
     avatarText: '6',
     avatarColor: Color(0xFFF89A2C),
     closeLabel: 'Closes at 6:00 PM',
-    unread: 1,
   ),
   GameChatData(
     name: 'DEAR 8PM',
@@ -61,6 +58,12 @@ const List<GameChatData> gameChats = [
     avatarText: '8',
     avatarColor: Color(0xFFE85A4F),
     closeLabel: 'Closes at 8:00 PM',
-    unread: 1,
   ),
 ];
+
+GameChatData gameForTimeSlot(String timeSlot) {
+  return gameChats.firstWhere(
+    (game) => game.timeSlot == timeSlot,
+    orElse: () => gameChats.first,
+  );
+}

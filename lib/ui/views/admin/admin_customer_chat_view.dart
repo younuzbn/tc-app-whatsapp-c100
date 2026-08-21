@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../services/sales_service.dart';
+import '../../../services/wallet_service.dart';
+import '../../theme/win_theme.dart';
 
 class AdminCustomerChatView extends StatefulWidget {
   const AdminCustomerChatView({
@@ -16,8 +18,10 @@ class AdminCustomerChatView extends StatefulWidget {
 
 class _AdminCustomerChatViewState extends State<AdminCustomerChatView> {
   final _salesService = const SalesService();
+  final _walletService = const WalletService();
   bool _loading = true;
   String? _error;
+  String? _verifyingId;
   List<ConversationMessage> _messages = [];
 
   @override
@@ -37,6 +41,32 @@ class _AdminCustomerChatViewState extends State<AdminCustomerChatView> {
       _error = error.toString().replaceFirst('Exception: ', '');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _verifyTopup(WalletTopupMessage topup, {String action = 'verify'}) async {
+    if (_verifyingId != null) return;
+    setState(() => _verifyingId = topup.id);
+    try {
+      await _walletService.verifyAdminTopup(topup.id, action: action);
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            action == 'reject'
+                ? 'Add money request rejected'
+                : 'Payment verified. Amount credited to deposit.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _verifyingId = null);
     }
   }
 
@@ -71,15 +101,51 @@ class _AdminCustomerChatViewState extends State<AdminCustomerChatView> {
                 itemCount: _messages.length,
                 itemBuilder: (context, index) {
                   final message = _messages[index];
-                  final date = message.date;
-                  final timeLabel = date == null
+                  final date = message.sale?.createdDate ?? message.date;
+                  final time = (message.sale?.placedAt ?? message.date)?.toLocal();
+                  final timeLabel = time == null
                       ? ''
-                      : '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+                      : '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+                  final dateLabel = WinTheme.monthDay(date);
+                  final stamp = [
+                    if (dateLabel.isNotEmpty) dateLabel,
+                    if (timeLabel.isNotEmpty) timeLabel,
+                  ].join(' · ');
                   final isAdminMessage = message.messageFrom == 'admin';
+                  final previous = index > 0 ? _messages[index - 1] : null;
+                  final previousDate = previous?.sale?.createdDate ?? previous?.date;
+                  final showDateChip = previous == null ||
+                      !WinTheme.sameDay(date, previousDate);
 
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Align(
+                  return Column(
+                    children: [
+                      if (showDateChip)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD6D3D1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                WinTheme.dayChip(date),
+                                style: const TextStyle(
+                                  color: Color(0xFF44403C),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Align(
                       alignment: isAdminMessage
                           ? Alignment.centerRight
                           : Alignment.centerLeft,
@@ -95,7 +161,13 @@ class _AdminCustomerChatViewState extends State<AdminCustomerChatView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (message.messageType == 'result' &&
+                            if (message.messageType == 'sale_ack' &&
+                                message.saleAck != null) ...[
+                              Text(
+                                message.saleAck!.message,
+                                style: const TextStyle(fontSize: 22),
+                              ),
+                            ] else if (message.messageType == 'result' &&
                                 message.resultMessage != null) ...[
                               const Text(
                                 'Admin',
@@ -115,9 +187,13 @@ class _AdminCustomerChatViewState extends State<AdminCustomerChatView> {
                               ),
                             ] else if (message.messageType == 'wallet_topup' &&
                                 message.walletTopup != null) ...[
-                              const Text(
-                                'Wallet top-up',
-                                style: TextStyle(
+                              Text(
+                                message.walletTopup!.isPending
+                                    ? 'Add money request'
+                                    : message.walletTopup!.isRejected
+                                    ? 'Add money rejected'
+                                    : 'Wallet top-up',
+                                style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   color: Color(0xFF0B8F78),
@@ -131,10 +207,17 @@ class _AdminCustomerChatViewState extends State<AdminCustomerChatView> {
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              const SizedBox(height: 2),
                               Text(
-                                'UPI Transaction ID ${message.walletTopup!.uti}',
-                                style: const TextStyle(fontSize: 12),
+                                message.walletTopup!.userStatus,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: message.walletTopup!.isCredited
+                                      ? const Color(0xFF0B8F78)
+                                      : message.walletTopup!.isRejected
+                                      ? const Color(0xFFDC2626)
+                                      : const Color(0xFFD97706),
+                                ),
                               ),
                               if (message.walletTopup!.screenshotUrl.isNotEmpty) ...[
                                 const SizedBox(height: 8),
@@ -201,6 +284,40 @@ class _AdminCustomerChatViewState extends State<AdminCustomerChatView> {
                                   ),
                                 ),
                               ],
+                              if (message.walletTopup!.isPending) ...[
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton(
+                                    onPressed: _verifyingId == message.walletTopup!.id
+                                        ? null
+                                        : () => _verifyTopup(message.walletTopup!),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: const Color(0xFF0B8F78),
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: _verifyingId == message.walletTopup!.id
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Text('Confirm as payment verified'),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: _verifyingId == message.walletTopup!.id
+                                      ? null
+                                      : () => _verifyTopup(
+                                            message.walletTopup!,
+                                            action: 'reject',
+                                          ),
+                                  child: const Text('Reject request'),
+                                ),
+                              ],
                             ] else if (message.sale != null) ...[
                               Text(
                                 '${message.sale!.timeSlot.toUpperCase()} ${message.sale!.lsk} ${message.sale!.number} x ${message.sale!.count}',
@@ -211,20 +328,42 @@ class _AdminCustomerChatViewState extends State<AdminCustomerChatView> {
                               ),
                               const SizedBox(height: 4),
                               Text(
+                                'Sale date ${WinTheme.monthDay(message.sale!.createdDate ?? message.date)}',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              Text(
                                 'Bill ${message.sale!.billNumber}  Amount ₹${message.sale!.damount.toStringAsFixed(0)}',
                                 style: const TextStyle(fontSize: 12),
                               ),
                             ],
-                            if (timeLabel.isNotEmpty) ...[
+                            if (stamp.isNotEmpty ||
+                                message.messageType == 'sale') ...[
                               const SizedBox(height: 4),
                               Align(
                                 alignment: Alignment.centerRight,
-                                child: Text(
-                                  timeLabel,
-                                  style: const TextStyle(
-                                    color: Color(0xFF6B7280),
-                                    fontSize: 10,
-                                  ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (stamp.isNotEmpty)
+                                      Text(
+                                        stamp,
+                                        style: const TextStyle(
+                                          color: Color(0xFF6B7280),
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    if (message.messageType == 'sale') ...[
+                                      if (stamp.isNotEmpty)
+                                        const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.done_all,
+                                        size: 14,
+                                        color: message.sale?.isConfirmed == true
+                                            ? const Color(0xFF53BDEB)
+                                            : const Color(0xFF6B7280),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ],
@@ -232,6 +371,8 @@ class _AdminCustomerChatViewState extends State<AdminCustomerChatView> {
                         ),
                       ),
                     ),
+                      ),
+                    ],
                   );
                 },
               ),

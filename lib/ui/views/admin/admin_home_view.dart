@@ -8,6 +8,7 @@ import 'admin_customer_chat_view.dart';
 import 'admin_game_chat_options_view.dart';
 import 'admin_referral_codes_view.dart';
 import 'admin_referral_tree_view.dart';
+import 'admin_withdraw_requests_view.dart';
 
 class AdminHomeView extends StatefulWidget {
   const AdminHomeView({super.key});
@@ -55,6 +56,19 @@ class _AdminHomeViewState extends State<AdminHomeView> {
           Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) => const AdminReferralCodesView(),
+            ),
+          );
+        },
+      ),
+      _AdminChatItem(
+        title: 'Withdraw requests',
+        subtitle: 'Accept, reject, or complete payouts',
+        color: const Color(0xFFEAB308),
+        leadingIcon: Icons.account_balance_wallet_outlined,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AdminWithdrawRequestsView(),
             ),
           );
         },
