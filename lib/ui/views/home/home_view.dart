@@ -98,7 +98,8 @@ class _HomeTabBody extends StatelessWidget {
           selected: viewModel.selectedCategory,
           onSelected: viewModel.selectCategory,
         ),
-        const _TodayDateLabel(),
+        if (viewModel.selectedCategory != HomeCategory.myEntries)
+          const _TodayDateLabel(),
         Expanded(
           child: _ChatList(
             category: viewModel.selectedCategory,
@@ -312,11 +313,11 @@ class _FilterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const chips = <(String, HomeCategory)>[
-      ('DRAWS', HomeCategory.draws),
-      ('RESULTS', HomeCategory.results),
-      ('WINNINGS', HomeCategory.winning),
-      ('MY ENTRIES', HomeCategory.myEntries),
+    const chips = <(String, String, HomeCategory)>[
+      ('🎟️', 'DRAWS', HomeCategory.draws),
+      ('🏆', 'RESULTS', HomeCategory.results),
+      ('💰', 'WINNINGS', HomeCategory.winning),
+      ('📋', 'MY ENTRIES', HomeCategory.myEntries),
     ];
 
     return DecoratedBox(
@@ -332,28 +333,39 @@ class _FilterRow extends StatelessWidget {
             for (final chip in chips)
               Expanded(
                 child: InkWell(
-                  onTap: () => onSelected(chip.$2),
+                  onTap: () => onSelected(chip.$3),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(2, 16, 2, 16),
-                        child: Text(
-                          chip.$1,
-                          maxLines: 1,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: selected == chip.$2
-                                ? Colors.white
-                                : HomeView._muted,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11,
-                          ),
+                        padding: const EdgeInsets.fromLTRB(2, 8, 2, 8),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              chip.$1,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 16, height: 1.1),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              chip.$2,
+                              maxLines: 1,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: selected == chip.$3
+                                    ? Colors.white
+                                    : HomeView._muted,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       Container(
                         height: 2,
-                        color: selected == chip.$2
+                        color: selected == chip.$3
                             ? HomeView._green
                             : Colors.transparent,
                       ),

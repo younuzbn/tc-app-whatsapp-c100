@@ -21,6 +21,7 @@ class WinningReport {
     required this.matchedResultValue,
     required this.positionRate,
     required this.positionDc,
+    this.createdAt,
   });
 
   final String id;
@@ -35,24 +36,32 @@ class WinningReport {
   final String matchedResultValue;
   final double positionRate;
   final double positionDc;
+  final DateTime? createdAt;
 
   double get winAmount => positionRate * count;
 
   factory WinningReport.fromJson(Map<String, dynamic> json) {
+    var id = json['winningId']?.toString() ?? json['_id']?.toString() ?? '';
+    if (id.startsWith('winning-')) {
+      id = id.substring(8);
+    }
+    final rate = double.tryParse(json['positionRate']?.toString() ?? '') ?? 0;
+    final count = int.tryParse(json['count']?.toString() ?? '') ?? 0;
+    final amount = double.tryParse(json['winAmount']?.toString() ?? '');
     return WinningReport(
-      id: json['_id']?.toString() ?? '',
+      id: id,
       billNumber: json['billNumber']?.toString() ?? '',
       timeSlot: json['timeSlot']?.toString() ?? '',
       resultDate: DateTime.tryParse(json['resultDate']?.toString() ?? ''),
       createdBy: json['createdBy']?.toString() ?? '',
       lsk: json['lsk']?.toString() ?? '',
       number: json['number']?.toString() ?? '',
-      count: int.tryParse(json['count']?.toString() ?? '') ?? 0,
+      count: count,
       matchedField: int.tryParse(json['matchedField']?.toString() ?? '') ?? 0,
       matchedResultValue: json['matchedResultValue']?.toString() ?? '',
-      positionRate:
-          double.tryParse(json['positionRate']?.toString() ?? '') ?? 0,
+      positionRate: amount != null && count > 0 ? amount / count : rate,
       positionDc: double.tryParse(json['positionDc']?.toString() ?? '') ?? 0,
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
     );
   }
 }

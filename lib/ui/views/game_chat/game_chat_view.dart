@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:stacked/stacked.dart';
 
 import '../../../services/sales_service.dart';
+import '../../../services/winning_service.dart';
 import '../../theme/win_theme.dart';
 import '../home/game_chat_data.dart';
 import 'game_chat_viewmodel.dart';
@@ -29,6 +30,12 @@ class GameChatView extends StackedView<GameChatViewModel> {
       ...viewModel.walletTopups.map(
         (topup) => _ChatMessageItem(date: topup.createdAt, topup: topup),
       ),
+      ...viewModel.winningMessages.map(
+        (win) => _ChatMessageItem(
+          date: win.createdAt ?? win.resultDate,
+          winning: win,
+        ),
+      ),
     ]..sort(
       (a, b) => (b.date ?? DateTime.fromMillisecondsSinceEpoch(0)).compareTo(
         a.date ?? DateTime.fromMillisecondsSinceEpoch(0),
@@ -45,62 +52,59 @@ class GameChatView extends StackedView<GameChatViewModel> {
               subtitle: viewModel.headerCloseLabel,
             ),
             Expanded(
-              child: Stack(
+              child: Column(
                 children: [
-                  Positioned.fill(
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                     child: Column(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                          child: Column(
-                            children: [
-                              if (viewModel.showStatusBanner) ...[
-                                _StatusBanner(
-                                  kind: viewModel.statusBannerKind,
-                                  text: viewModel.statusBannerText,
-                                ),
-                                const SizedBox(height: 8),
-                              ],
-                              _SystemBanner(
-                                text: viewModel.announcementWelcomeText,
-                              ),
-                              if (viewModel.showSecondSaleBanner) ...[
-                                const SizedBox(height: 8),
-                                _SystemBanner(
-                                  text: viewModel.announcementSecondBannerText,
-                                ),
-                              ],
-                              if (viewModel.errorMessage != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Text(
-                                    viewModel.errorMessage!,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      color: Colors.redAccent,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                            ],
+                        if (viewModel.showStatusBanner) ...[
+                          _StatusBanner(
+                            kind: viewModel.statusBannerKind,
+                            text: viewModel.statusBannerText,
                           ),
+                          const SizedBox(height: 8),
+                        ],
+                        _SystemBanner(
+                          text: viewModel.announcementWelcomeText,
                         ),
-                        Expanded(
-                          child: combinedMessages.isEmpty && !viewModel.isBusy
-                              ? const Center(
-                                  child: Text(
-                                    'No messages yet.',
-                                    style: TextStyle(
-                                      color: Color(0xFF9CA3AF),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  reverse: true,
-                                  controller: viewModel.chatScrollController,
-                                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 170),
+                        if (viewModel.showSecondSaleBanner) ...[
+                          const SizedBox(height: 8),
+                          _SystemBanner(
+                            text: viewModel.announcementSecondBannerText,
+                          ),
+                        ],
+                        if (viewModel.errorMessage != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              viewModel.errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.redAccent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: combinedMessages.isEmpty && !viewModel.isBusy
+                        ? const Center(
+                            child: Text(
+                              'No messages yet.',
+                              style: TextStyle(
+                                color: Color(0xFF9CA3AF),
+                                fontSize: 12,
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            reverse: true,
+                            controller: viewModel.chatScrollController,
+                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
                                   itemCount: combinedMessages.length +
                                       ((viewModel.hasOlderSales ||
                                               viewModel.loadingOlderSales)
@@ -170,6 +174,16 @@ class GameChatView extends StackedView<GameChatViewModel> {
                                         ],
                                       );
                                     }
+                                    if (message.winning != null) {
+                                      return Column(
+                                        key: ValueKey('win-${message.winning!.id}'),
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (dateChip != null) dateChip,
+                                          _WinningBubble(report: message.winning!),
+                                        ],
+                                      );
+                                    }
                                     return Column(
                                       key: ValueKey('result-${message.result!.id}'),
                                       mainAxisSize: MainAxisSize.min,
@@ -180,18 +194,10 @@ class GameChatView extends StackedView<GameChatViewModel> {
                                     );
                                   },
                                 ),
-                        ),
-                      ],
-                    ),
                   ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: viewModel.isGameClosed
-                        ? _ClosedGamePanel(opensAtLabel: viewModel.opensAtLabel)
-                        : _ComposerPanel(viewModel: viewModel),
-                  ),
+                  viewModel.isGameClosed
+                      ? _ClosedGamePanel(opensAtLabel: viewModel.opensAtLabel)
+                      : _ComposerPanel(viewModel: viewModel),
                 ],
               ),
             ),
@@ -800,16 +806,10 @@ class _SaleBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final billDate = sale.createdDate ?? sale.placedAt;
     final time = sale.placedAt ?? sale.createdDate;
     final timeLabel = time == null
         ? ''
         : '${time.toLocal().hour.toString().padLeft(2, '0')}:${time.toLocal().minute.toString().padLeft(2, '0')}';
-    final dateLabel = WinTheme.monthDay(billDate);
-    final stamp = [
-      if (dateLabel.isNotEmpty) dateLabel,
-      if (timeLabel.isNotEmpty) timeLabel,
-    ].join(' · ');
     final tickColor =
         isConfirmed ? const Color(0xFF53BDEB) : const Color(0xFF6B7280);
 
@@ -818,24 +818,25 @@ class _SaleBubble extends StatelessWidget {
       child: Align(
         alignment: Alignment.centerRight,
         child: Container(
-          constraints: BoxConstraints(maxWidth: showActions ? 250 : 230),
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+          width: showActions ? 250 : 230,
+          padding: const EdgeInsets.fromLTRB(10, 6, 10, 5),
           decoration: BoxDecoration(
             color: const Color(0xFFD9FDD3),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Expanded(
                     child: Text(
-                      _labelFromLsk(),
+                      '${_labelFromLsk()}  ${sale.number}-${sale.count}',
                       style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        height: 1.2,
                         color: Color(0xFF0F172A),
                       ),
                     ),
@@ -869,44 +870,21 @@ class _SaleBubble extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 2),
-              Text(
-                '${sale.number}-${sale.count}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              if (dateLabel.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  'Sale date $dateLabel',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF4B5563),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 3),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (stamp.isNotEmpty) ...[
-                      Text(
-                        stamp,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFF6B7280),
-                        ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (timeLabel.isNotEmpty) ...[
+                    Text(
+                      timeLabel,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF6B7280),
                       ),
-                      const SizedBox(width: 4),
-                    ],
-                    Icon(Icons.done_all, size: 15, color: tickColor),
+                    ),
+                    const SizedBox(width: 4),
                   ],
-                ),
+                  Icon(Icons.done_all, size: 15, color: tickColor),
+                ],
               ),
             ],
           ),
@@ -1103,16 +1081,84 @@ class _ResultBubble extends StatelessWidget {
   }
 }
 
+class _WinningBubble extends StatelessWidget {
+  const _WinningBubble({required this.report});
+
+  final WinningReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final time = (report.createdAt ?? report.resultDate)?.toLocal();
+    final timeLabel = time == null
+        ? ''
+        : '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    final line =
+        '${WinTheme.lskLabel(report.lsk)} - ${report.number} - ${report.count} - ₹${WinTheme.rupee(report.winAmount)}';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 260),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'You got a winning',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0B8F78),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                line,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+              if (timeLabel.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    timeLabel,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ChatMessageItem {
   const _ChatMessageItem({
     required this.date,
     this.sale,
     this.result,
     this.topup,
+    this.winning,
   });
 
   final DateTime? date;
   final SalesRecord? sale;
   final ResultChatMessage? result;
   final WalletTopupMessage? topup;
+  final WinningReport? winning;
 }

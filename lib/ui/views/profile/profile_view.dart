@@ -1,5 +1,10 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../../services/android_image_picker.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/session_service.dart';
 import '../../theme/win_theme.dart';
@@ -18,6 +23,7 @@ class ProfileView extends StatefulWidget {
 class _ProfileViewState extends State<ProfileView> {
   final _auth = const AuthService();
   bool _loading = true;
+  bool _uploadingPhoto = false;
   String? _error;
   MobileProfile? _profile;
 
@@ -27,11 +33,13 @@ class _ProfileViewState extends State<ProfileView> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool showSpinner = true}) async {
+    if (showSpinner) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final profile = await _auth.fetchProfile();
       if (!mounted) return;
@@ -45,6 +53,43 @@ class _ProfileViewState extends State<ProfileView> {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _pickProfileImage() async {
+    if (_uploadingPhoto) return;
+    try {
+      final path = await AndroidImagePicker.pickImage();
+      if (!mounted || path == null || path.isEmpty) return;
+      setState(() {
+        _uploadingPhoto = true;
+        _error = null;
+      });
+      final file = File(path);
+      final bytes = await file.readAsBytes();
+      final lower = path.toLowerCase();
+      final mime = lower.endsWith('.png')
+          ? 'image/png'
+          : lower.endsWith('.webp')
+          ? 'image/webp'
+          : 'image/jpeg';
+      await _auth.updateProfile(
+        imageBase64: base64Encode(bytes),
+        imageMime: mime,
+      );
+      await _load(showSpinner: false);
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message?.isNotEmpty == true
+            ? e.message
+            : 'Could not open gallery. Please reinstall the latest APK.';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
     }
   }
 
@@ -119,16 +164,57 @@ class _ProfileViewState extends State<ProfileView> {
                   Center(
                     child: Column(
                       children: [
-                        CircleAvatar(
-                          radius: 42,
-                          backgroundColor: WinTheme.green,
-                          child: Text(
-                            letter,
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontSize: 36,
-                              fontWeight: FontWeight.w800,
-                            ),
+                        GestureDetector(
+                          onTap: _pickProfileImage,
+                          child: Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 42,
+                                backgroundColor: WinTheme.green,
+                                backgroundImage:
+                                    profile?.profileImageUrl != null &&
+                                        profile!.profileImageUrl!.isNotEmpty
+                                    ? NetworkImage(profile.profileImageUrl!)
+                                    : null,
+                                child:
+                                    profile?.profileImageUrl != null &&
+                                        profile!.profileImageUrl!.isNotEmpty
+                                    ? null
+                                    : Text(
+                                        letter,
+                                        style: const TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 36,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                              ),
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: const BoxDecoration(
+                                    color: WinTheme.green,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: _uploadingPhoto
+                                      ? const Padding(
+                                          padding: EdgeInsets.all(6),
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.black,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.camera_alt_rounded,
+                                          size: 15,
+                                          color: Colors.black,
+                                        ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -253,6 +339,14 @@ class _ProfileViewState extends State<ProfileView> {
                     icon: Icons.person_outline_rounded,
                     label: 'Edit Profile',
                     onTap: _editName,
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.add_a_photo_outlined,
+                    label: (profile?.profileImageUrl?.isNotEmpty == true)
+                        ? 'Change profile photo'
+                        : 'Add profile photo',
+                    onTap: _pickProfileImage,
                   ),
                   const SizedBox(height: 10),
                   _ActionTile(

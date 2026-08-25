@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
 import 'session_service.dart';
+import 'winning_service.dart';
 
 class SalesRecord {
   const SalesRecord({
@@ -210,6 +211,7 @@ class ConversationMessage {
     this.resultMessage,
     this.walletTopup,
     this.saleAck,
+    this.winning,
   });
 
   final String id;
@@ -221,6 +223,7 @@ class ConversationMessage {
   final ResultChatMessage? resultMessage;
   final WalletTopupMessage? walletTopup;
   final SaleAckMessage? saleAck;
+  final WinningReport? winning;
 
   factory ConversationMessage.fromJson(Map<String, dynamic> json) {
     final type = json['messageType']?.toString() ?? 'sale';
@@ -245,6 +248,17 @@ class ConversationMessage {
         timeSlot: 'wallet',
         date: topup.createdAt,
         walletTopup: topup,
+      );
+    }
+    if (type == 'winning') {
+      final winning = WinningReport.fromJson(json);
+      return ConversationMessage(
+        id: winning.id,
+        messageType: type,
+        messageFrom: from,
+        timeSlot: winning.timeSlot,
+        date: winning.createdAt ?? winning.resultDate,
+        winning: winning,
       );
     }
     if (type == 'sale_ack') {

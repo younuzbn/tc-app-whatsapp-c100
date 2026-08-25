@@ -53,6 +53,7 @@ class MobileProfile {
     required this.totalWinnings,
     required this.referralEarned,
     required this.inviteCount,
+    this.profileImageUrl,
   });
 
   final String name;
@@ -65,6 +66,7 @@ class MobileProfile {
   final double totalWinnings;
   final double referralEarned;
   final int inviteCount;
+  final String? profileImageUrl;
 }
 
 class AuthService {
@@ -200,6 +202,12 @@ class AuthService {
       }
       final wallet = data['wallet'] as Map<String, dynamic>? ?? {};
       final referral = data['referral'] as Map<String, dynamic>? ?? {};
+      final imagePath = data['profileImageUrl']?.toString() ?? '';
+      final imageUrl = imagePath.isEmpty
+          ? null
+          : imagePath.startsWith('http')
+          ? imagePath
+          : '${AppConfig.apiBaseUrl}$imagePath';
       return MobileProfile(
         name: data['name']?.toString() ?? '',
         displayPhoneNumber:
@@ -217,13 +225,18 @@ class AuthService {
         referralEarned:
             double.tryParse(referral['referralEarned']?.toString() ?? '') ?? 0,
         inviteCount: int.tryParse(referral['inviteCount']?.toString() ?? '') ?? 0,
+        profileImageUrl: imageUrl,
       );
     } catch (_) {
       return null;
     }
   }
 
-  Future<void> updateProfile({required String name}) async {
+  Future<void> updateProfile({
+    String? name,
+    String? imageBase64,
+    String? imageMime,
+  }) async {
     final token = SessionService.authToken;
     if (token == null || token.isEmpty) {
       throw Exception('Login required');
@@ -235,9 +248,14 @@ class AuthService {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $token',
           },
-          body: jsonEncode({'name': name}),
+          body: jsonEncode({
+            if (name != null) 'name': name,
+            if (imageBase64 != null && imageBase64.isNotEmpty)
+              'imageBase64': imageBase64,
+            if (imageMime != null && imageMime.isNotEmpty) 'imageMime': imageMime,
+          }),
         )
-        .timeout(const Duration(seconds: 8));
+        .timeout(const Duration(seconds: 30));
     final body = _decodeBody(response.body);
     if (response.statusCode >= 400 || body['success'] != true) {
       throw Exception(body['message'] ?? 'Failed to update profile');

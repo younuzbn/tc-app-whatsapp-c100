@@ -46,6 +46,40 @@ class WinTheme {
     }
   }
 
+  static String weekdayCommaDate(DateTime? d) {
+    if (d == null) return '';
+    final local = d.toLocal();
+    const weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    final label =
+        '${weekdays[local.weekday - 1]}, ${local.day} ${months[local.month - 1]}';
+    if (local.year != DateTime.now().year) {
+      return '$label ${local.year}';
+    }
+    return label;
+  }
+
   static String monthDay(DateTime? d) {
     if (d == null) return '';
     final local = d.toLocal();

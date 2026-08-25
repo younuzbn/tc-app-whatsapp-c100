@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../services/result_service.dart';
 import '../home/game_chat_data.dart';
@@ -80,9 +81,10 @@ class _AdminResultEditorViewState extends State<AdminResultEditorView> {
       final payload = <String, String>{};
       for (final field in _resultFields) {
         final value = _controllers[field]!.text.trim();
-        if (value.isNotEmpty) {
-          payload[field] = value;
+        if (value.length != 3 || int.tryParse(value) == null) {
+          throw Exception('Fill every field with exactly 3 digits before saving.');
         }
+        payload[field] = value;
       }
 
       if (widget.editMode) {
@@ -146,9 +148,15 @@ class _AdminResultEditorViewState extends State<AdminResultEditorView> {
       controller: _controllers[field],
       keyboardType: TextInputType.number,
       textAlign: TextAlign.center,
+      maxLength: 3,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(3),
+      ],
       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
       decoration: const InputDecoration(
         isDense: true,
+        counterText: '',
         contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 10),
         border: OutlineInputBorder(),
       ),

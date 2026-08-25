@@ -185,6 +185,24 @@ class _AdminCustomerChatViewState extends State<AdminCustomerChatView> {
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
+                            ] else if (message.messageType == 'winning' &&
+                                message.winning != null) ...[
+                              const Text(
+                                'You got a winning',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0B8F78),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${WinTheme.lskLabel(message.winning!.lsk)} - ${message.winning!.number} - ${message.winning!.count} - ₹${WinTheme.rupee(message.winning!.winAmount)}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ] else if (message.messageType == 'wallet_topup' &&
                                 message.walletTopup != null) ...[
                               Text(

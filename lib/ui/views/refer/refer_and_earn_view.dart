@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../config/app_config.dart';
 import '../../theme/win_theme.dart';
 
 class ReferAndEarnView extends StatelessWidget {
@@ -58,7 +59,7 @@ class ReferAndEarnView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          const Text('Your referral code', style: TextStyle(color: WinTheme.muted)),
+          const Text('Your invite code', style: TextStyle(color: WinTheme.muted)),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -106,7 +107,8 @@ class ReferAndEarnView extends StatelessWidget {
                       SharePlus.instance.share(
                         ShareParams(
                           text:
-                              'Join WIN APP with my referral code $code. You get ₹50 on signup!',
+                              'Join WIN APP with my referral code $code. You get ₹50 on signup!\n'
+                              'Download the app: ${AppConfig.appDownloadUrl}?ref=$code',
                         ),
                       );
                     },

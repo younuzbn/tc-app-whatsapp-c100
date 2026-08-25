@@ -196,8 +196,31 @@ class _MyEntriesViewState extends State<MyEntriesView> {
             );
           }
           final sale = _entries[index - 1];
+          final previous = index > 1 ? _entries[index - 2] : null;
+          final showDate = previous == null ||
+              !WinTheme.sameDay(sale.createdDate, previous.createdDate);
           final won = _wonIds.contains('${sale.billNumber}-${sale.number}-${sale.lsk}');
-          return _EntryCard(sale: sale, won: won);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showDate)
+                Padding(
+                  padding: EdgeInsets.only(
+                    top: index == 1 ? 2 : 10,
+                    bottom: 10,
+                  ),
+                  child: Text(
+                    WinTheme.weekdayCommaDate(sale.createdDate ?? sale.placedAt),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              _EntryCard(sale: sale, won: won),
+            ],
+          );
         },
       ),
     );
@@ -227,14 +250,12 @@ class _EntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final line =
-        '${WinTheme.lskLabel(sale.lsk)} - ${sale.number} - ${sale.count} - ₹${WinTheme.rupee(sale.damount)}';
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
         color: WinTheme.card,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: WinTheme.border),
       ),
       child: Column(
@@ -244,8 +265,12 @@ class _EntryCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  WinTheme.drawLabel(sale.timeSlot),
-                  style: const TextStyle(color: WinTheme.muted, fontSize: 13),
+                  '${WinTheme.lskLabel(sale.lsk)} - ${sale.number} - ${sale.count}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               Text(
@@ -253,24 +278,31 @@ class _EntryCard extends StatelessWidget {
                 style: TextStyle(
                   color: won ? WinTheme.gold : WinTheme.green,
                   fontWeight: FontWeight.w800,
-                  fontSize: 13,
+                  fontSize: 12,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            line,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Align(
-            alignment: Alignment.centerRight,
-            child: Icon(Icons.done_all, color: Color(0xFF53BDEB), size: 18),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '₹${WinTheme.rupee(sale.damount)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                WinTheme.drawLabel(sale.timeSlot),
+                style: const TextStyle(color: WinTheme.muted, fontSize: 12),
+              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.done_all, color: Color(0xFF53BDEB), size: 16),
+            ],
           ),
         ],
       ),

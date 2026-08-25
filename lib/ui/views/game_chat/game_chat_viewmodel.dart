@@ -7,6 +7,7 @@ import '../../../services/admin_service.dart';
 import '../../../services/result_service.dart';
 import '../../../services/sales_service.dart';
 import '../../../services/session_service.dart';
+import '../../../services/winning_service.dart';
 import '../home/game_chat_data.dart';
 
 enum GameStatusBannerKind { countdown, gameClosed, resultPublished }
@@ -17,9 +18,11 @@ class GameChatViewModel extends BaseViewModel {
     SalesService? salesService,
     AdminService? adminService,
     ResultService? resultService,
+    WinningService? winningService,
   }) : _salesService = salesService ?? const SalesService(),
        _adminService = adminService ?? const AdminService(),
-       _resultService = resultService ?? const ResultService() {
+       _resultService = resultService ?? const ResultService(),
+       _winningService = winningService ?? const WinningService() {
     numberController.addListener(_onNumberFieldUpdated);
     countController.addListener(_handleInputChanged);
   }
@@ -28,6 +31,7 @@ class GameChatViewModel extends BaseViewModel {
   final SalesService _salesService;
   final AdminService _adminService;
   final ResultService _resultService;
+  final WinningService _winningService;
 
   final TextEditingController numberController = TextEditingController();
   final TextEditingController countController = TextEditingController();
@@ -38,6 +42,7 @@ class GameChatViewModel extends BaseViewModel {
   final List<SalesRecord> sales = [];
   final List<ResultChatMessage> resultMessages = [];
   final List<WalletTopupMessage> walletTopups = [];
+  final List<WinningReport> winningMessages = [];
   final ScrollController chatScrollController = ScrollController();
 
   String selectedNumberMode = '1D';
@@ -112,12 +117,38 @@ class GameChatViewModel extends BaseViewModel {
       }
       if (_resultPollTick % 20 == 0) {
         unawaited(refreshWalletTopups());
+        unawaited(refreshWinnings());
+        unawaited(refreshResultMessages());
       }
     });
     await _loadConfigs();
     chatScrollController.addListener(_onChatScroll);
     await loadSales();
     await refreshClosedSessionResultStatus();
+  }
+
+  Future<void> refreshResultMessages() async {
+    try {
+      final resultItems = await _salesService.getResultMessages(
+        timeSlot: game.timeSlot,
+      );
+      resultMessages
+        ..clear()
+        ..addAll(resultItems);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> refreshWinnings() async {
+    try {
+      final items = await _winningService.listMyWinnings(
+        timeSlot: game.timeSlot,
+      );
+      winningMessages
+        ..clear()
+        ..addAll(items);
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<void> refreshWalletTopups() async {
@@ -238,6 +269,10 @@ class GameChatViewModel extends BaseViewModel {
         _resultPublishedForClosedSession = published;
         _lastResultCheckKey = key;
         notifyListeners();
+        if (published) {
+          unawaited(refreshResultMessages());
+          unawaited(refreshWinnings());
+        }
       }
     } catch (_) {
       // Keep previous status on network errors.
@@ -262,6 +297,12 @@ class GameChatViewModel extends BaseViewModel {
       try {
         topupItems = await _salesService.getMyWalletTopups();
       } catch (_) {}
+      var winningItems = <WinningReport>[];
+      try {
+        winningItems = await _winningService.listMyWinnings(
+          timeSlot: game.timeSlot,
+        );
+      } catch (_) {}
       sales
         ..clear()
         ..addAll(items.sales);
@@ -273,6 +314,9 @@ class GameChatViewModel extends BaseViewModel {
       walletTopups
         ..clear()
         ..addAll(topupItems);
+      winningMessages
+        ..clear()
+        ..addAll(winningItems);
       _maybeLoadOlderIfShort();
     } catch (error) {
       errorMessage = error.toString().replaceFirst('Exception: ', '');
