@@ -829,3 +829,4 @@ class _MultiPrizeNote extends StatelessWidget {
       ),
     );
   }
+}
