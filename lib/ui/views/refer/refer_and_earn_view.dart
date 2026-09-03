@@ -195,40 +195,46 @@ class ReferAndEarnView extends StatelessWidget {
           ),
           
           // WhatsApp Share Button
-          Material(
-            color: _accent,
-            child: InkWell(
-              onTap: code == '—' ? null : () => shareWinAppInvite(code),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset(
-                      'assets/whatsapp_icon.png',
-                      width: 28,
-                      height: 28,
-                    ),
-                    const SizedBox(width: 10),
-                    const Text(
-                      'ഷെയർ ചെയ്യൂ, വിജയിക്കൂ!',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Material(
+              color: _accent,
+              borderRadius: BorderRadius.circular(12),
+              elevation: 2,
+              child: InkWell(
+                onTap: code == '—' ? null : () => shareWinAppInvite(code),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset(
+                        'assets/whatsapp_icon.png',
+                        width: 24,
+                        height: 24,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      const Text(
+                        'ഷെയർ ചെയ്യൂ, വിജയിക്കൂ!',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
           
           // Price Chart Section (embedded)
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           const _PriceChartBody(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -283,34 +289,34 @@ class _PriceChartBody extends StatelessWidget {
         _PriceHeader(),
         _SuperTicketSection(),
         Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, 20),
+          padding: EdgeInsets.fromLTRB(16, 6, 16, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _AbcTicketsCard(),
-              SizedBox(height: 16),
+              SizedBox(height: 12),
               _BoxPair(
                 leftAmount: '₹3,300',
                 rightAmount: '₹800',
               ),
-              SizedBox(height: 18),
+              SizedBox(height: 14),
               _SectionTitle(
                 title: '2 അക്കങ്ങൾ ആവർത്തിച്ചാൽ',
                 subtitle: '(ഉദാ: 556, 667)',
               ),
-              SizedBox(height: 10),
+              SizedBox(height: 8),
               _BoxPair(
                 leftAmount: '₹3,800',
                 rightAmount: '₹800',
               ),
-              SizedBox(height: 18),
+              SizedBox(height: 14),
               _SectionTitle(
                 title: '3 അക്കങ്ങളും ഒന്നായാൽ',
                 subtitle: '(ഉദാ: 666, 444, 777)',
               ),
-              SizedBox(height: 10),
+              SizedBox(height: 8),
               _TripleBanner(),
-              SizedBox(height: 16),
+              SizedBox(height: 12),
               _MultiPrizeNote(),
             ],
           ),
@@ -327,33 +333,33 @@ class _PriceHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       color: WinTheme.bg,
       child: const Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('🏆', style: TextStyle(fontSize: 22)),
+              Text('🏆', style: TextStyle(fontSize: 20)),
               SizedBox(width: 8),
               Text(
                 'സമ്മാന ചാർട്ട്',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 26,
+                  fontSize: 22,
                   fontWeight: FontWeight.w800,
                   height: 1.2,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 8),
+          SizedBox(height: 6),
           Text(
             'നിങ്ങളുടെ വിജയ വിവരങ്ങൾ ഇവിടെ കാണാം',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: WinTheme.muted,
-              fontSize: 13,
+              fontSize: 12,
               height: 1.35,
             ),
           ),
@@ -378,7 +384,7 @@ class _SuperTicketSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
       child: Column(
         children: [
           const Text(
@@ -386,13 +392,13 @@ class _SuperTicketSection extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white,
-              fontSize: 18,
+              fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             decoration: BoxDecoration(
               color: WinTheme.green,
               borderRadius: BorderRadius.circular(20),
@@ -402,11 +408,11 @@ class _SuperTicketSection extends StatelessWidget {
               style: TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.w800,
-                fontSize: 13,
+                fontSize: 12,
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           for (var i = 0; i < _prizes.length; i++) ...[
             _PrizeRow(
               title: _prizes[i].$1,
@@ -414,7 +420,7 @@ class _SuperTicketSection extends StatelessWidget {
               note: _prizes[i].$3,
               featured: i == 0,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
           ],
         ],
       ),
@@ -438,10 +444,10 @@ class _PrizeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: featured ? WinTheme.greenSoft : WinTheme.card,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: featured ? WinTheme.green : WinTheme.border,
         ),
@@ -449,7 +455,7 @@ class _PrizeRow extends StatelessWidget {
       child: Row(
         children: [
           if (featured) ...[
-            const Icon(Icons.star_rounded, color: WinTheme.gold, size: 20),
+            const Icon(Icons.star_rounded, color: WinTheme.gold, size: 18),
             const SizedBox(width: 8),
           ],
           Expanded(
@@ -461,7 +467,7 @@ class _PrizeRow extends StatelessWidget {
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
-                    fontSize: 15,
+                    fontSize: 14,
                   ),
                 ),
                 if (note != null)
@@ -469,18 +475,23 @@ class _PrizeRow extends StatelessWidget {
                     note!,
                     style: const TextStyle(
                       color: WinTheme.muted,
-                      fontSize: 12,
+                      fontSize: 11,
                     ),
                   ),
               ],
             ),
           ),
-          Text(
-            amount,
-            style: TextStyle(
-              color: featured ? WinTheme.gold : WinTheme.green,
-              fontWeight: FontWeight.w800,
-              fontSize: 20,
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 65,
+            child: Text(
+              amount,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: featured ? WinTheme.gold : WinTheme.green,
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+              ),
             ),
           ),
         ],
@@ -684,7 +695,7 @@ class _BoxCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       decoration: BoxDecoration(
         color: WinTheme.card,
         borderRadius: BorderRadius.circular(14),
@@ -695,15 +706,20 @@ class _BoxCard extends StatelessWidget {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: WinTheme.muted, fontSize: 13),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: WinTheme.muted, fontSize: 12),
           ),
-          const SizedBox(height: 8),
-          Text(
-            amount,
-            style: const TextStyle(
-              color: WinTheme.green,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              amount,
+              style: const TextStyle(
+                color: WinTheme.green,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
