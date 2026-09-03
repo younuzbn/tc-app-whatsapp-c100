@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../services/referral_share.dart';
 import '../../theme/win_theme.dart';
+import '../price_chart/price_chart_view.dart';
 
 class ReferAndEarnView extends StatelessWidget {
   const ReferAndEarnView({
@@ -224,6 +225,41 @@ class ReferAndEarnView extends StatelessWidget {
                         color: Colors.black,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Material(
+            color: WinTheme.bg,
+            child: InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const PriceChartView(embedded: false),
+                  ),
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.workspace_premium_outlined,
+                      color: WinTheme.muted,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'View Price Chart',
+                      style: TextStyle(
+                        color: WinTheme.muted,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],

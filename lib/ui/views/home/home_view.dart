@@ -64,7 +64,7 @@ class HomeView extends StackedView<HomeViewModel> {
                     embedded: true,
                     referralCode: SessionService.referralCode ?? '',
                   ),
-                  const PriceChartView(embedded: true),
+                  const WalletView(),
                   const ProfileView(embedded: true),
                 ],
               ),
@@ -73,7 +73,7 @@ class HomeView extends StackedView<HomeViewModel> {
               selected: viewModel.selectedTab,
               onDigits: () => viewModel.selectTab(HomeTab.digits),
               onRefer: () => viewModel.selectTab(HomeTab.refer),
-              onPriceChart: () => viewModel.selectTab(HomeTab.priceChart),
+              onWallet: () => viewModel.selectTab(HomeTab.wallet),
               onProfile: () => viewModel.selectTab(HomeTab.profile),
             ),
           ],
@@ -641,14 +641,14 @@ class _BottomNav extends StatelessWidget {
     required this.selected,
     required this.onDigits,
     required this.onRefer,
-    required this.onPriceChart,
+    required this.onWallet,
     required this.onProfile,
   });
 
   final HomeTab selected;
   final VoidCallback onDigits;
   final VoidCallback onRefer;
-  final VoidCallback onPriceChart;
+  final VoidCallback onWallet;
   final VoidCallback onProfile;
 
   @override
@@ -675,10 +675,10 @@ class _BottomNav extends StatelessWidget {
             onTap: onRefer,
           ),
           _NavEntry(
-            icon: Icons.workspace_premium_outlined,
-            label: 'Price Chart',
-            selected: selected == HomeTab.priceChart,
-            onTap: onPriceChart,
+            icon: Icons.account_balance_wallet_outlined,
+            label: 'Wallet',
+            selected: selected == HomeTab.wallet,
+            onTap: onWallet,
           ),
           _NavEntry(
             icon: Icons.person_outline_rounded,

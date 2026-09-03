@@ -12,7 +12,7 @@ import 'game_chat_data.dart';
 
 enum HomeCategory { draws, results, winning, myEntries }
 
-enum HomeTab { digits, refer, priceChart, profile }
+enum HomeTab { digits, refer, wallet, profile }
 
 class HomeViewModel extends BaseViewModel {
   HomeViewModel({required this.displayPhoneNumber}) {
