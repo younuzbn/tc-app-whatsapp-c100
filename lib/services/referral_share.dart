@@ -9,27 +9,27 @@ const referShareAssetPath = 'assets/refer_share.png';
 
 String referralShareText(String code) {
   return '''
-🌟 Join WIN APP and Start Winning Today! 🌟
-Use my Invite Code: $code
-📲 Download Link: ${AppConfig.appDownloadUrl}
+🌟 WIN APP ൽ ചേരൂ, ഇന്നേ വിജയിക്കാൻ തുടങ്ങൂ! 🌟
+എന്റെ ഇൻവൈറ്റ് കോഡ് ഉപയോഗിക്കൂ: $code
+📲 ഡൗൺലോഡ് ലിങ്ക്: ${AppConfig.appDownloadUrl}
 
-💸 MASSIVE REFER & EARN BENEFITS 💸
- * Get ₹50 Instantly: You get ₹50 as a welcome bonus the moment you join with my code!
- * Lifetime 5% Commission: Invite your friends and earn 5% whenever they add money to their wallet. If they add ₹600, you get ₹30, and they still keep their full ₹600!
- * Easy Withdrawals: You can withdraw 50% of your Refer & Earn balance and 100% of your actual winnings. (Note: Deposited amounts cannot be withdrawn directly).
- * Smart Wallet Usage: When you play, the app saves your real money by debiting in this exact order: first from your withdrawable referral winnings, second from entry winnings, third from non-withdrawable referral winnings, and finally from your deposit balance.
+💸 കൂട്ടുകാരെ ചേർക്കൂ, പണം നേടൂ (വമ്പൻ ഓഫറുകൾ) 💸
+ * ഉടൻ തന്നെ ₹50 കിട്ടും: എന്റെ കോഡ് ഉപയോഗിച്ച് നിങ്ങൾ ഇതിൽ ചേരുമ്പോൾ തന്നെ നിങ്ങൾക്ക് ₹50 വെൽക്കം ബോണസ് ആയി ഉടൻ ലഭിക്കും!
+ * എന്നും 5% കമ്മീഷൻ: നിങ്ങളുടെ കൂട്ടുകാരെ ക്ഷണിക്കുക. അവർ ഇതിലേക്ക് പണം നിക്ഷേപിക്കുമ്പോൾ നിങ്ങൾക്ക് 5% കമ്മീഷൻ ലഭിക്കും. ഉദാഹരണത്തിന്, അവർ ₹600 ചേർത്താൽ നിങ്ങൾക്ക് ₹30 കിട്ടും. അവരുടെ ₹600 അവർക്ക് മുഴുവനായി തന്നെ അക്കൗണ്ടിൽ ഉണ്ടാകുകയും ചെയ്യും!
+ * എളുപ്പത്തിൽ പണം പിൻവലിക്കാം: കൂട്ടുകാരെ ചേർത്ത് കിട്ടുന്ന തുകയുടെ പകുതിയും (50%), നിങ്ങൾ കളിച്ച് ജയിക്കുന്ന തുക മുഴുവനായും (100%) നിങ്ങൾക്ക് അക്കൗണ്ടിലേക്ക് പിൻവലിക്കാം. (ശ്രദ്ധിക്കുക: നിക്ഷേപിക്കുന്ന പണം നേരിട്ട് പിൻവലിക്കാൻ കഴിയില്ല).
+ * പണം നഷ്ടപ്പെടാതെയുള്ള വാലറ്റ് ഉപയോഗം: നിങ്ങൾ കളി തുടങ്ങുമ്പോൾ ആപ്പ് പണം എടുക്കുന്നത് താഴെ പറയുന്ന ക്രമത്തിലായിരിക്കും: ആദ്യം പിൻവലിക്കാവുന്ന റെഫറൽ തുകയിൽ നിന്നും, രണ്ടാമത് നിങ്ങളുടെ സമ്മാനത്തുകയിൽ നിന്നും, മൂന്നാമത് പിൻവലിക്കാൻ കഴിയാത്ത റെഫറൽ തുകയിൽ നിന്നും, ഏറ്റവും അവസാനം മാത്രം നിങ്ങൾ നിക്ഷേപിച്ച സ്വന്തം പണത്തിൽ നിന്നും. ഇത് നിങ്ങളുടെ പണം ലാഭിക്കാൻ സഹായിക്കും.
 
-🏆 OFFICIAL PRIZE CHART (₹10 Tickets) 🏆
- * 🥇 1st Prize: ₹5000 (Super Tickets)
- * 🥈 2nd Prize: ₹500
- * 🥉 3rd Prize: ₹250
- * 🏅 4th Prize: ₹100
- * 🏅 5th Prize: ₹50
- * 🏅 6th Prize: ₹20 (Valid for 30 different 3-digit combinations)
- * 📦 First Prize Box Match: ₹3300 per box for an exact match of the 1st prize winning 3 digits!
- * 🔄 Other Combinations: ₹700 for any other combinations!
+🏆 ഔദ്യോഗിക സമ്മാന വിവരങ്ങൾ (ടിക്കറ്റ് വില: ₹10) 🏆
+ * 🥇 ഒന്നാം സമ്മാനം: ₹5000 (സൂപ്പർ ടിക്കറ്റുകൾ)
+ * 🥈 രണ്ടാം സമ്മാനം: ₹500
+ * 🥉 മൂന്നാം സമ്മാനം: ₹250
+ * 🏅 നാലാം സമ്മാനം: ₹100
+ * 🏅 അഞ്ചാം സമ്മാനം: ₹50
+ * 🏅 ആറാം സമ്മാനം: ₹20 (വ്യത്യസ്തമായ 30 തരം 3-അക്ക നമ്പറുകൾക്ക് ലഭിക്കും)
+ * 📦 ഫസ്റ്റ് പ്രൈസ് ബോക്സ് മാച്ച്: ഒന്നാം സമ്മാനം ലഭിച്ച അതേ 3 അക്കങ്ങൾ കൃത്യമായി വന്നാൽ ഒരു ബോക്സിന് ₹3300 വീതം ലഭിക്കും!
+ * 🔄 മറ്റ് കോമ്പിനേഷനുകൾ: ഇതേ അക്കങ്ങളുടെ മറ്റ് കോമ്പിനേഷനുകൾക്ക് ₹700 ലഭിക്കുന്നതാണ്!
 
-🚀 Don't miss out on the daily winnings! Download the app, enter code $code, and claim your ₹50 bonus now!
+🚀 ദിവസവും വിജയിക്കാനുള്ള അവസരം നഷ്ടപ്പെടുത്തരുത്! ആപ്പ് ഡൗൺലോഡ് ചെയ്യൂ, കോഡ് $code എന്റർ ചെയ്യൂ, നിങ്ങളുടെ ₹50 ബോണസ് ഇപ്പോൾ തന്നെ ക്ലെയിം ചെയ്യൂ!
 '''
       .trim();
 }
