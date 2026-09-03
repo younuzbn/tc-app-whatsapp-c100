@@ -135,7 +135,7 @@ class _WalletViewState extends State<WalletView> {
     if (!mounted) return;
 
     // Navigate to Payment Processing page
-    await Navigator.of(context).push(
+    final navigateFuture = Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => PaymentProcessingView(
           orderId: order.orderId,
@@ -152,6 +152,8 @@ class _WalletViewState extends State<WalletView> {
       ),
     );
 
+    // Don't wait for navigation to complete, start checkout immediately
+    
     // Set up deep link listener
     final returned = Completer<void>();
     final links = AppLinks();

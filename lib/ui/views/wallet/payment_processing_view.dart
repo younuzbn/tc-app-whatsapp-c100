@@ -105,7 +105,7 @@ class _PaymentProcessingViewState extends State<PaymentProcessingView>
               fontWeight: FontWeight.w600,
             ),
           ),
-          backgroundColor: WinTheme.primaryColor,
+          backgroundColor: WinTheme.green,
           elevation: 0,
           iconTheme: const IconThemeData(color: Colors.white),
           leading: IconButton(
@@ -157,8 +157,8 @@ class _PaymentProcessingViewState extends State<PaymentProcessingView>
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          WinTheme.primaryColor,
-                          WinTheme.primaryColor.withOpacity(0.7),
+                          WinTheme.green,
+                          WinTheme.green.withOpacity(0.7),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -166,7 +166,7 @@ class _PaymentProcessingViewState extends State<PaymentProcessingView>
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: WinTheme.primaryColor.withOpacity(0.3),
+                          color: WinTheme.green.withOpacity(0.3),
                           blurRadius: 30,
                           spreadRadius: 5,
                         ),
@@ -202,7 +202,7 @@ class _PaymentProcessingViewState extends State<PaymentProcessingView>
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: WinTheme.primaryColor.withOpacity(0.1),
+                    color: WinTheme.green.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(30),
                   ),
                   child: Text(
@@ -210,7 +210,7 @@ class _PaymentProcessingViewState extends State<PaymentProcessingView>
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
-                      color: WinTheme.primaryColor,
+                      color: WinTheme.green,
                     ),
                   ),
                 ),
@@ -237,7 +237,7 @@ class _PaymentProcessingViewState extends State<PaymentProcessingView>
                   child: CircularProgressIndicator(
                     strokeWidth: 3,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      WinTheme.primaryColor,
+                      WinTheme.green,
                     ),
                   ),
                 ),

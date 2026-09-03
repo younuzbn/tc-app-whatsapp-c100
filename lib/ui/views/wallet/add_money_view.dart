@@ -51,7 +51,7 @@ class _AddMoneyViewState extends State<AddMoneyView> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor: WinTheme.primaryColor,
+        backgroundColor: WinTheme.green,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -74,15 +74,15 @@ class _AddMoneyViewState extends State<AddMoneyView> {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              WinTheme.primaryColor.withOpacity(0.1),
-                              WinTheme.primaryColor.withOpacity(0.05),
+                              WinTheme.green.withOpacity(0.1),
+                              WinTheme.green.withOpacity(0.05),
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: WinTheme.primaryColor.withOpacity(0.2),
+                            color: WinTheme.green.withOpacity(0.2),
                           ),
                         ),
                         child: Row(
@@ -90,7 +90,7 @@ class _AddMoneyViewState extends State<AddMoneyView> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: WinTheme.primaryColor,
+                                color: WinTheme.green,
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Icon(
@@ -160,7 +160,7 @@ class _AddMoneyViewState extends State<AddMoneyView> {
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w600,
-                                color: WinTheme.primaryColor,
+                                color: WinTheme.green,
                               ),
                             ),
                           ),
@@ -182,7 +182,7 @@ class _AddMoneyViewState extends State<AddMoneyView> {
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: WinTheme.primaryColor,
+                              color: WinTheme.green,
                               width: 2,
                             ),
                           ),
@@ -256,12 +256,12 @@ class _AddMoneyViewState extends State<AddMoneyView> {
                               ),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? WinTheme.primaryColor
+                                    ? WinTheme.green
                                     : const Color(0xFFF5F5F5),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: isSelected
-                                      ? WinTheme.primaryColor
+                                      ? WinTheme.green
                                       : Colors.transparent,
                                   width: 2,
                                 ),
@@ -339,7 +339,7 @@ class _AddMoneyViewState extends State<AddMoneyView> {
                   child: ElevatedButton(
                     onPressed: _proceed,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: WinTheme.primaryColor,
+                      backgroundColor: WinTheme.green,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -369,7 +369,7 @@ class _AddMoneyViewState extends State<AddMoneyView> {
         Icon(
           icon,
           size: 18,
-          color: WinTheme.primaryColor,
+          color: WinTheme.green,
         ),
         const SizedBox(width: 10),
         Text(
