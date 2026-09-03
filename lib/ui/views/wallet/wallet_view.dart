@@ -134,14 +134,16 @@ class _WalletViewState extends State<WalletView> {
 
     if (!mounted) return;
 
-    // Null check (should never happen due to error handling above)
-    if (order == null) return;
+    // Extract order details (null checks)
+    final orderId = order?.orderId;
+    final checkoutUrl = order?.checkoutUrl;
+    if (orderId == null || checkoutUrl == null) return;
 
     // Navigate to Payment Processing page
     final navigateFuture = Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => PaymentProcessingView(
-          orderId: order.orderId,
+          orderId: orderId,
           amount: amount,
           onCancel: () {
             if (mounted) {
@@ -168,7 +170,7 @@ class _WalletViewState extends State<WalletView> {
     // Launch Cashfree checkout
     try {
       final launched = await launchUrl(
-        Uri.parse(order.checkoutUrl),
+        Uri.parse(checkoutUrl),
         mode: LaunchMode.inAppBrowserView,
       );
       if (!launched) {
@@ -204,7 +206,7 @@ class _WalletViewState extends State<WalletView> {
     if (!mounted) return;
     
     // Poll for payment status
-    await _pollPayment(order.orderId);
+    await _pollPayment(orderId);
   }
 
   Future<void> _pollPayment(String orderId) async {
