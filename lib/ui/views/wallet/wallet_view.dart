@@ -134,6 +134,9 @@ class _WalletViewState extends State<WalletView> {
 
     if (!mounted) return;
 
+    // Null check (should never happen due to error handling above)
+    if (order == null) return;
+
     // Navigate to Payment Processing page
     final navigateFuture = Navigator.of(context).push(
       MaterialPageRoute(
