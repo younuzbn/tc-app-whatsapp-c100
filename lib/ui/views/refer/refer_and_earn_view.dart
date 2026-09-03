@@ -145,17 +145,25 @@ class ReferAndEarnView extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Material(
-                          color: _accent,
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
+                          elevation: 1,
                           child: InkWell(
                             onTap: code == '—'
                                 ? null
                                 : () => _copy(context, code, 'Invite code copied'),
                             borderRadius: BorderRadius.circular(10),
-                            child: Padding(
+                            child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
                                 vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: const Color(0xFFE5E7EB),
+                                  width: 1.5,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -165,7 +173,7 @@ class ReferAndEarnView extends StatelessWidget {
                                       code.toUpperCase(),
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
-                                        color: Colors.black,
+                                        color: Color(0xFF111827),
                                         fontSize: 18,
                                         fontWeight: FontWeight.w800,
                                         letterSpacing: 1.1,
@@ -175,7 +183,7 @@ class ReferAndEarnView extends StatelessWidget {
                                   const SizedBox(width: 8),
                                   const Icon(
                                     Icons.copy_rounded,
-                                    color: Colors.black,
+                                    color: Color(0xFF6B7280),
                                     size: 18,
                                   ),
                                 ],
@@ -191,11 +199,16 @@ class ReferAndEarnView extends StatelessWidget {
             ),
           ),
           Material(
-            color: WinTheme.bg,
+            color: _accent,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+            ),
             child: InkWell(
               onTap: code == '—' ? null : () => shareWinAppInvite(code),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -208,8 +221,8 @@ class ReferAndEarnView extends StatelessWidget {
                     const Text(
                       'ഷെയർ ചെയ്യൂ, വിജയിക്കൂ!',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
+                        color: Colors.black,
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
