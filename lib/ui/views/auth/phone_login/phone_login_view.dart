@@ -4,6 +4,7 @@ import 'package:stacked/stacked.dart';
 
 import '../../admin/admin_home_view.dart';
 import '../../home/home_view.dart';
+import '../../update/update_gate.dart';
 import '../otp_verification/otp_verification_view.dart';
 import 'phone_login_viewmodel.dart';
 
@@ -298,12 +299,14 @@ class PhoneLoginView extends StackedView<PhoneLoginViewModel> {
                               final auth = result.authResult!;
                               Navigator.of(context).pushAndRemoveUntil(
                                 MaterialPageRoute<void>(
-                                  builder: (_) => auth.isAdmin
-                                      ? const AdminHomeView()
-                                      : HomeView(
-                                          displayPhoneNumber:
-                                              auth.displayPhoneNumber,
-                                        ),
+                                  builder: (_) => wrapLoggedInApp(
+                                    auth.isAdmin
+                                        ? const AdminHomeView()
+                                        : HomeView(
+                                            displayPhoneNumber:
+                                                auth.displayPhoneNumber,
+                                          ),
+                                  ),
                                 ),
                                 (route) => false,
                               );

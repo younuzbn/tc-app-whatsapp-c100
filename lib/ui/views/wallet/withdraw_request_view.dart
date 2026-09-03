@@ -9,9 +9,13 @@ class WithdrawRequestView extends StatefulWidget {
     super.key,
     required this.maxWithdrawable,
     required this.savedDetails,
+    this.withdrawableWinnings = 0,
+    this.withdrawableReferral = 0,
   });
 
   final double maxWithdrawable;
+  final double withdrawableWinnings;
+  final double withdrawableReferral;
   final PayoutDetails savedDetails;
 
   @override
@@ -132,7 +136,7 @@ class _WithdrawRequestViewState extends State<WithdrawRequestView> {
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          'Withdraw winnings',
+          'Withdraw',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
@@ -147,7 +151,7 @@ class _WithdrawRequestViewState extends State<WithdrawRequestView> {
               border: Border.all(color: WinTheme.border),
             ),
             child: Text(
-              'You can withdraw only prize winnings. Maximum today: ₹${WinTheme.rupee(widget.maxWithdrawable)}. One request is allowed per day, from 12 AM to 12 AM. Bank details are saved after the first request.',
+              'You can withdraw winning balance (₹${WinTheme.rupee(widget.withdrawableWinnings)}) and withdrawable referral balance (₹${WinTheme.rupee(widget.withdrawableReferral)}). Deposit and non withdrawable referral cannot be withdrawn. Maximum now: ₹${WinTheme.rupee(widget.maxWithdrawable)}. One request per day, from 12 AM to 12 AM. Bank details are saved after the first request.',
               style: const TextStyle(color: WinTheme.muted, height: 1.4),
             ),
           ),

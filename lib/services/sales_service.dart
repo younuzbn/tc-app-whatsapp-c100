@@ -172,7 +172,9 @@ class WalletTopupMessage {
 
   factory WalletTopupMessage.fromJson(Map<String, dynamic> json) {
     final path = json['screenshotUrl']?.toString() ?? '';
-    final absoluteUrl = path.startsWith('http')
+    final absoluteUrl = path.isEmpty
+        ? ''
+        : path.startsWith('http')
         ? path
         : '${AppConfig.apiBaseUrl}$path';
     var id = json['topupId']?.toString() ?? json['_id']?.toString() ?? '';

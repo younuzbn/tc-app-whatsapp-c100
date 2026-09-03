@@ -1,10 +1,9 @@
-import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
+import 'api_http.dart';
 import 'session_service.dart';
 
 class PhoneCheckResult {
@@ -81,7 +80,7 @@ class AuthService {
       final response = await http
           .post(
             Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/check-phone'),
-            headers: {'Content-Type': 'application/json'},
+            headers: jsonHeaders(),
             body: jsonEncode({
               'countryCode': countryCode,
               'phoneNumber': phoneNumber,
@@ -89,7 +88,7 @@ class AuthService {
                 'referralCode': referralCode,
             }),
           )
-          .timeout(const Duration(seconds: 8));
+          .timeout(apiTimeout);
 
       final body = _decodeBody(response.body);
       if (response.statusCode >= 400 || body['success'] != true) {
@@ -104,12 +103,9 @@ class AuthService {
             ? data['referralValid'] as bool
             : null,
       );
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } catch (error) {
+      if (isNetworkError(error)) throw mapNetworkError(error);
+      rethrow;
     }
   }
 
@@ -123,7 +119,7 @@ class AuthService {
       final response = await http
           .post(
             Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/register'),
-            headers: {'Content-Type': 'application/json'},
+            headers: jsonHeaders(),
             body: jsonEncode({
               'countryCode': countryCode,
               'phoneNumber': phoneNumber,
@@ -131,15 +127,12 @@ class AuthService {
               'referralCode': referralCode,
             }),
           )
-          .timeout(const Duration(seconds: 12));
+          .timeout(apiTimeout);
 
       return _parseAuthResponse(response, countryCode, phoneNumber);
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } catch (error) {
+      if (isNetworkError(error)) throw mapNetworkError(error);
+      rethrow;
     }
   }
 
@@ -152,22 +145,19 @@ class AuthService {
       final response = await http
           .post(
             Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/login'),
-            headers: {'Content-Type': 'application/json'},
+            headers: jsonHeaders(),
             body: jsonEncode({
               'countryCode': countryCode,
               'phoneNumber': phoneNumber,
               'password': password,
             }),
           )
-          .timeout(const Duration(seconds: 12));
+          .timeout(apiTimeout);
 
       return _parseAuthResponse(response, countryCode, phoneNumber);
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } catch (error) {
+      if (isNetworkError(error)) throw mapNetworkError(error);
+      rethrow;
     }
   }
 
@@ -270,24 +260,21 @@ class AuthService {
       final response = await http
           .post(
             Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/request-otp'),
-            headers: {'Content-Type': 'application/json'},
+            headers: jsonHeaders(),
             body: jsonEncode({
               'countryCode': countryCode,
               'phoneNumber': phoneNumber,
             }),
           )
-          .timeout(const Duration(seconds: 8));
+          .timeout(apiTimeout);
 
       final body = _decodeBody(response.body);
       if (response.statusCode >= 400 || body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to request OTP');
       }
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } catch (error) {
+      if (isNetworkError(error)) throw mapNetworkError(error);
+      rethrow;
     }
   }
 
@@ -300,22 +287,19 @@ class AuthService {
       final response = await http
           .post(
             Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/verify-otp'),
-            headers: {'Content-Type': 'application/json'},
+            headers: jsonHeaders(),
             body: jsonEncode({
               'countryCode': countryCode,
               'phoneNumber': phoneNumber,
               'otp': otp,
             }),
           )
-          .timeout(const Duration(seconds: 8));
+          .timeout(apiTimeout);
 
       return _parseAuthResponse(response, countryCode, phoneNumber);
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } catch (error) {
+      if (isNetworkError(error)) throw mapNetworkError(error);
+      rethrow;
     }
   }
 
@@ -384,9 +368,5 @@ class AuthService {
     }
 
     return {};
-  }
-
-  String _serverUnavailableMessage() {
-    return 'Server on ${AppConfig.apiBaseUrl} is not reachable right now.';
   }
 }

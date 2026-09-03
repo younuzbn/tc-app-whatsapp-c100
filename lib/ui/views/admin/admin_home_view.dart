@@ -8,6 +8,8 @@ import 'admin_customer_chat_view.dart';
 import 'admin_game_chat_options_view.dart';
 import 'admin_referral_codes_view.dart';
 import 'admin_referral_tree_view.dart';
+import 'admin_upi_settings_view.dart';
+import 'admin_users_view.dart';
 import 'admin_withdraw_requests_view.dart';
 
 class AdminHomeView extends StatefulWidget {
@@ -48,6 +50,19 @@ class _AdminHomeViewState extends State<AdminHomeView> {
   Widget build(BuildContext context) {
     final items = <_AdminChatItem>[
       _AdminChatItem(
+        title: 'UPI payment',
+        subtitle: 'UPI ID and QR shown when users add money',
+        color: const Color(0xFF25D366),
+        leadingIcon: Icons.account_balance,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AdminUpiSettingsView(),
+            ),
+          );
+        },
+      ),
+      _AdminChatItem(
         title: 'Referral codes',
         subtitle: 'Create and manage invite codes',
         color: const Color(0xFF4B9B8B),
@@ -69,6 +84,19 @@ class _AdminHomeViewState extends State<AdminHomeView> {
           Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) => const AdminWithdrawRequestsView(),
+            ),
+          );
+        },
+      ),
+      _AdminChatItem(
+        title: 'Users',
+        subtitle: 'List, block, or delete customer accounts',
+        color: const Color(0xFFEF4444),
+        leadingIcon: Icons.people_outline,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AdminUsersView(),
             ),
           );
         },

@@ -4,7 +4,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../config/app_config.dart';
 import '../../../services/android_image_picker.dart';
+import '../../../services/app_update_service.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/session_service.dart';
 import '../../theme/win_theme.dart';
@@ -22,8 +24,10 @@ class ProfileView extends StatefulWidget {
 
 class _ProfileViewState extends State<ProfileView> {
   final _auth = const AuthService();
+  final _updates = const AppUpdateService();
   bool _loading = true;
   bool _uploadingPhoto = false;
+  bool _checkingUpdate = false;
   String? _error;
   MobileProfile? _profile;
 
@@ -125,6 +129,41 @@ class _ProfileViewState extends State<ProfileView> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> _checkForUpdate() async {
+    if (_checkingUpdate) return;
+    setState(() {
+      _checkingUpdate = true;
+      _error = null;
+    });
+    try {
+      final status = await _updates.check();
+      if (!mounted) return;
+      if (status.hasNewer) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Version ${status.info?.latestVersion} is available. Opening download page.',
+            ),
+          ),
+        );
+        await _updates.openDownloadPage(status.info?.downloadUrl);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'You have the latest version (${status.currentVersion}).',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _checkingUpdate = false);
     }
   }
 
@@ -354,6 +393,15 @@ class _ProfileViewState extends State<ProfileView> {
                     label: 'Phone',
                     trailing: phone,
                     onTap: null,
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.system_update_alt_rounded,
+                    label: _checkingUpdate
+                        ? 'Checking for update…'
+                        : 'Check for update',
+                    trailing: 'v${AppConfig.appVersion}',
+                    onTap: _checkForUpdate,
                   ),
                   const SizedBox(height: 18),
                   TextButton(

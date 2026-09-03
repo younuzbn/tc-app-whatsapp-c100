@@ -13,4 +13,14 @@ class AndroidImagePicker {
     if (path == null || path.isEmpty) return null;
     return path;
   }
+
+  static Future<void> saveToGallery({
+    required List<int> bytes,
+    String filename = 'win-app-upi-qr.jpg',
+  }) async {
+    await _channel.invokeMethod<void>('saveImage', {
+      'bytes': bytes,
+      'filename': filename,
+    });
+  }
 }

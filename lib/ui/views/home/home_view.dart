@@ -5,6 +5,7 @@ import '../../../services/session_service.dart';
 import '../entries/my_entries_view.dart';
 import '../game_chat/game_chat_view.dart';
 import '../notifications/notifications_view.dart';
+import '../price_chart/price_chart_view.dart';
 import '../profile/profile_view.dart';
 import '../refer/refer_and_earn_view.dart';
 import '../results/results_list_view.dart';
@@ -63,6 +64,7 @@ class HomeView extends StackedView<HomeViewModel> {
                     embedded: true,
                     referralCode: SessionService.referralCode ?? '',
                   ),
+                  const PriceChartView(embedded: true),
                   const ProfileView(embedded: true),
                 ],
               ),
@@ -71,6 +73,7 @@ class HomeView extends StackedView<HomeViewModel> {
               selected: viewModel.selectedTab,
               onDigits: () => viewModel.selectTab(HomeTab.digits),
               onRefer: () => viewModel.selectTab(HomeTab.refer),
+              onPriceChart: () => viewModel.selectTab(HomeTab.priceChart),
               onProfile: () => viewModel.selectTab(HomeTab.profile),
             ),
           ],
@@ -638,12 +641,14 @@ class _BottomNav extends StatelessWidget {
     required this.selected,
     required this.onDigits,
     required this.onRefer,
+    required this.onPriceChart,
     required this.onProfile,
   });
 
   final HomeTab selected;
   final VoidCallback onDigits;
   final VoidCallback onRefer;
+  final VoidCallback onPriceChart;
   final VoidCallback onProfile;
 
   @override
@@ -656,7 +661,6 @@ class _BottomNav extends StatelessWidget {
         border: Border(top: BorderSide(color: Color(0xFF1A1A1A))),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _NavEntry(
             icon: Icons.grid_view_rounded,
@@ -669,6 +673,12 @@ class _BottomNav extends StatelessWidget {
             label: 'Refer & Earn',
             selected: selected == HomeTab.refer,
             onTap: onRefer,
+          ),
+          _NavEntry(
+            icon: Icons.workspace_premium_outlined,
+            label: 'Price Chart',
+            selected: selected == HomeTab.priceChart,
+            onTap: onPriceChart,
           ),
           _NavEntry(
             icon: Icons.person_outline_rounded,
@@ -708,6 +718,9 @@ class _NavEntry extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: color,
                 fontSize: 10,

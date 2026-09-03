@@ -1,6 +1,16 @@
 class AppConfig {
-  static const String apiBaseUrl = 'http://13.201.85.82:3100';
+  static const String apiBaseUrl = 'https://apiv1.winapp24.com';
 
-  /// APK download page through Nginx (port 80), same host as SSH.
-  static const String appDownloadUrl = 'http://13.201.85.82/client100/download';
+  static const String appDownloadUrl = 'https://download.winapp24.com/';
+
+  static const String appVersion = '1.1.2';
+
+  static const String paymentScheme = 'winapp';
+
+  static String mediaUrl(String path) {
+    final value = path.trim();
+    if (value.isEmpty) return '';
+    if (value.startsWith('http://') || value.startsWith('https://')) return value;
+    return '$apiBaseUrl$value';
+  }
 }

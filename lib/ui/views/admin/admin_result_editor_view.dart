@@ -163,7 +163,7 @@ class _AdminResultEditorViewState extends State<AdminResultEditorView> {
     );
   }
 
-  Widget _fiveRow(List<String> fields) {
+  Widget _fieldRow(List<String> fields) {
     return Row(
       children: [
         for (var i = 0; i < fields.length; i++) ...[
@@ -180,10 +180,15 @@ class _AdminResultEditorViewState extends State<AdminResultEditorView> {
     final dateLabel =
         '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
 
-    final bottomRows = <List<String>>[];
-    for (var i = 0; i < _bottomFields.length; i += 5) {
-      bottomRows.add(_bottomFields.sublist(i, i + 5));
-    }
+    // Same 3×10 layout as the results page / share text (column-major).
+    final bottomRows = <List<String>>[
+      for (var row = 0; row < 10; row++)
+        [
+          _bottomFields[row],
+          _bottomFields[10 + row],
+          _bottomFields[20 + row],
+        ],
+    ];
 
     return Scaffold(
       appBar: AppBar(title: Text('$title - ${widget.game.name}')),
@@ -211,14 +216,14 @@ class _AdminResultEditorViewState extends State<AdminResultEditorView> {
                   Text(_message!, style: const TextStyle(fontSize: 12)),
                   const SizedBox(height: 10),
                 ],
-                _fiveRow(_topFields),
+                _fieldRow(_topFields),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 14),
                   child: Divider(thickness: 1.2, height: 1),
                 ),
                 for (var i = 0; i < bottomRows.length; i++) ...[
                   if (i > 0) const SizedBox(height: 6),
-                  _fiveRow(bottomRows[i]),
+                  _fieldRow(bottomRows[i]),
                 ],
                 const SizedBox(height: 16),
                 FilledButton(

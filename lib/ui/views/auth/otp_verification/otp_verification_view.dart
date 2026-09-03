@@ -3,6 +3,7 @@ import 'package:stacked/stacked.dart';
 
 import '../../admin/admin_home_view.dart';
 import '../../home/home_view.dart';
+import '../../update/update_gate.dart';
 import 'otp_verification_viewmodel.dart';
 
 class OtpVerificationView extends StackedView<OtpVerificationViewModel> {
@@ -96,12 +97,14 @@ class OtpVerificationView extends StackedView<OtpVerificationViewModel> {
 
                         await Navigator.of(context).pushAndRemoveUntil(
                           MaterialPageRoute<void>(
-                            builder: (_) => authResult.isAdmin
-                                ? const AdminHomeView()
-                                : HomeView(
-                                    displayPhoneNumber:
-                                        authResult.displayPhoneNumber,
-                                  ),
+                            builder: (_) => wrapLoggedInApp(
+                              authResult.isAdmin
+                                  ? const AdminHomeView()
+                                  : HomeView(
+                                      displayPhoneNumber:
+                                          authResult.displayPhoneNumber,
+                                    ),
+                            ),
                           ),
                           (route) => false,
                         );

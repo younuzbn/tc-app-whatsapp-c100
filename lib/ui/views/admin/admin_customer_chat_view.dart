@@ -97,10 +97,12 @@ class _AdminCustomerChatViewState extends State<AdminCustomerChatView> {
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView.builder(
+                reverse: true,
                 padding: const EdgeInsets.all(16),
                 itemCount: _messages.length,
                 itemBuilder: (context, index) {
-                  final message = _messages[index];
+                  final chronoIndex = _messages.length - 1 - index;
+                  final message = _messages[chronoIndex];
                   final date = message.sale?.createdDate ?? message.date;
                   final time = (message.sale?.placedAt ?? message.date)?.toLocal();
                   final timeLabel = time == null
@@ -112,7 +114,8 @@ class _AdminCustomerChatViewState extends State<AdminCustomerChatView> {
                     if (timeLabel.isNotEmpty) timeLabel,
                   ].join(' · ');
                   final isAdminMessage = message.messageFrom == 'admin';
-                  final previous = index > 0 ? _messages[index - 1] : null;
+                  final previous =
+                      chronoIndex > 0 ? _messages[chronoIndex - 1] : null;
                   final previousDate = previous?.sale?.createdDate ?? previous?.date;
                   final showDateChip = previous == null ||
                       !WinTheme.sameDay(date, previousDate);

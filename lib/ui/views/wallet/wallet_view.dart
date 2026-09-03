@@ -1,13 +1,17 @@
-import 'dart:convert';
-import 'dart:io';
+import 'dart:async';
 
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import '../../../services/android_image_picker.dart';
+import '../../../config/app_config.dart';
 import '../../../services/sales_service.dart';
+import '../../../services/session_service.dart';
 import '../../../services/wallet_service.dart';
 import '../../theme/win_theme.dart';
+import 'add_money_view.dart';
+import 'payment_processing_view.dart';
 import 'withdraw_request_view.dart';
 
 class WalletView extends StatefulWidget {
@@ -76,52 +80,348 @@ class _WalletViewState extends State<WalletView> {
   }
 
   Future<void> _addMoney() async {
-    final amount = await showDialog<double>(
-      context: context,
-      builder: (context) => const _AmountDialog(
-        title: 'Add Money',
-        confirmLabel: 'Continue',
+    // Navigate to Add Money page (full screen)
+    if (!mounted) return;
+    final amount = await Navigator.of(context).push<double>(
+      MaterialPageRoute(
+        builder: (context) => const AddMoneyView(),
       ),
     );
+    
     if (amount == null || !mounted) return;
 
-    final proof = await showDialog<_PaymentProof?>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => _PaymentProofDialog(amount: amount),
-    );
-    if (proof == null || !mounted) return;
-
+    // Create Cashfree order
+    CashfreeOrderSession? order;
     try {
-      final summary = await _service.addFunds(
-        amount: amount,
-        screenshotBase64: proof.screenshotBase64,
-        screenshotMime: proof.screenshotMime,
-      );
-      if (!mounted) return;
-      setState(() => _summary = summary);
-      await _load();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Add money request sent for ₹${WinTheme.rupee(amount)}. Deposit will be credited after admin verifies the payment.',
+      // Show loading indicator
+      if (mounted) {
+        showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
           ),
-        ),
+        );
+      }
+
+      order = await _service.createCashfreeOrder(
+        amount: amount,
+        userId: SessionService.userId ?? SessionService.username ?? '',
       );
+      
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      Navigator.of(context).pop(); // Close loading
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Error'),
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+
+    // Navigate to Payment Processing page
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PaymentProcessingView(
+          orderId: order.orderId,
+          amount: amount,
+          onCancel: () {
+            if (mounted) {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Payment cancelled')),
+              );
+            }
+          },
+        ),
+      ),
+    );
+
+    // Set up deep link listener
+    final returned = Completer<void>();
+    final links = AppLinks();
+    final sub = links.uriLinkStream.listen((uri) {
+      if (uri.scheme != AppConfig.paymentScheme) return;
+      if (!returned.isCompleted) returned.complete();
+    });
+
+    // Launch Cashfree checkout
+    try {
+      final launched = await launchUrl(
+        Uri.parse(order.checkoutUrl),
+        mode: LaunchMode.inAppBrowserView,
+      );
+      if (!launched) {
+        throw Exception('Could not open Cashfree checkout.');
+      }
+    } catch (e) {
+      await sub.cancel();
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close processing page
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Error'),
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Wait for deep link return
+    await Future.any([
+      returned.future,
+      Future<void>.delayed(const Duration(seconds: 2)),
+    ]);
+    await sub.cancel();
+    
+    if (!mounted) return;
+    
+    // Poll for payment status
+    await _pollPayment(order.orderId);
+  }
+
+  Future<void> _pollPayment(String orderId) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 90));
+    String? lastStatus;
+    
+    try {
+      while (DateTime.now().isBefore(deadline) && mounted) {
+        final status = await _service.getPaymentStatus(orderId);
+        lastStatus = status.status;
+        
+        if (status.credited) {
+          // Payment successful
+          if (!mounted) return;
+          Navigator.of(context).pop(); // Close processing page
+          
+          await _load(); // Reload wallet data
+          
+          if (!mounted) return;
+          // Show success dialog
+          await showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              contentPadding: const EdgeInsets.all(24),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check_circle,
+                      size: 60,
+                      color: Colors.green[600],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Payment Successful!',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1a1a1a),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '₹${status.amount.toStringAsFixed(0)} has been added to your wallet.',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: Color(0xFF666666),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green[600],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Great!',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+          return;
+        }
+        
+        if (status.rejected) {
+          // Payment failed
+          if (!mounted) return;
+          Navigator.of(context).pop(); // Close processing page
+          
+          await _load(); // Reload wallet data
+          
+          if (!mounted) return;
+          // Show failure dialog
+          await showDialog<void>(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              contentPadding: const EdgeInsets.all(24),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.error_outline,
+                      size: 60,
+                      color: Colors.red[600],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Payment Failed',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1a1a1a),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Your payment was not successful. Please try again.',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Color(0xFF666666),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[600],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'OK',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+          return;
+        }
+        
+        await Future<void>.delayed(const Duration(seconds: 2));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close processing page
+      
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Error'),
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Timeout
+    if (mounted) {
+      Navigator.of(context).pop(); // Close processing page
+      await _load();
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Payment Status Unknown'),
+          content: Text(
+            lastStatus == 'pending'
+                ? 'Payment is still processing. Your wallet will update after confirmation.'
+                : 'Could not confirm payment yet. Check wallet again in a moment.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
     }
   }
 
   Future<void> _withdraw() async {
-    final winnings = _summary?.withdrawable ?? 0;
-    if (winnings <= 0) {
+    final max = _summary?.withdrawable ?? 0;
+    if (max <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Only prize winnings can be withdrawn. Deposit and referral money can only be used to play.',
+            'Nothing to withdraw. You can take winning balance and withdrawable referral balance. Deposit and non withdrawable referral cannot be withdrawn.',
           ),
         ),
       );
@@ -130,7 +430,9 @@ class _WalletViewState extends State<WalletView> {
     final sent = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => WithdrawRequestView(
-          maxWithdrawable: winnings,
+          maxWithdrawable: max,
+          withdrawableWinnings: _summary?.withdrawableWinnings ?? 0,
+          withdrawableReferral: _summary?.withdrawableReferral ?? 0,
           savedDetails: _payoutDetails,
         ),
       ),
@@ -200,21 +502,32 @@ class _WalletViewState extends State<WalletView> {
                         const SizedBox(height: 16),
                         _BalanceRow(
                           color: WinTheme.yellow,
-                          label: 'Deposit',
+                          label: 'Deposit balance',
                           value: admin ? '—' : '₹${WinTheme.rupee(summary?.deposit ?? 0)}',
                         ),
                         const SizedBox(height: 10),
                         _BalanceRow(
                           color: WinTheme.green,
-                          label: 'Winning',
+                          label: 'Winning balance',
                           value: admin ? '—' : '₹${WinTheme.rupee(summary?.winningsBalance ?? 0)}',
                           valueColor: WinTheme.green,
                         ),
                         const SizedBox(height: 10),
                         _BalanceRow(
+                          color: Colors.white,
+                          label: 'Withdrawable referral balance',
+                          value: admin
+                              ? '—'
+                              : '₹${WinTheme.rupee(summary?.withdrawableReferral ?? 0)}',
+                          valueColor: Colors.white,
+                        ),
+                        const SizedBox(height: 10),
+                        _BalanceRow(
                           color: WinTheme.blue,
-                          label: 'Refer earn',
-                          value: admin ? '—' : '₹${WinTheme.rupee(summary?.referralBalance ?? 0)}',
+                          label: 'Non withdrawable referral balance',
+                          value: admin
+                              ? '—'
+                              : '₹${WinTheme.rupee(summary?.nonWithdrawableReferral ?? 0)}',
                         ),
                         if (!admin && (summary?.lockedBalance ?? 0) > 0) ...[
                           const SizedBox(height: 10),
@@ -243,7 +556,7 @@ class _WalletViewState extends State<WalletView> {
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Deposit is money you added. Refer earn is money from referrals. Playing uses deposit first, then referral. Only Winning can be withdrawn. Add money and withdraw requests show as Processing, then Processed or Failed.',
+                            'Play uses withdrawable referral first, then winning balance, then non withdrawable referral, then deposit. You can withdraw winning balance and withdrawable referral balance. Deposit and non withdrawable referral cannot be withdrawn.',
                             style: TextStyle(
                               color: WinTheme.muted,
                               fontSize: 12,
@@ -467,60 +780,7 @@ class _TransactionTile extends StatelessWidget {
   }
 }
 
-class _AmountDialog extends StatefulWidget {
-  const _AmountDialog({required this.title, required this.confirmLabel});
 
-  final String title;
-  final String confirmLabel;
-
-  @override
-  State<_AmountDialog> createState() => _AmountDialogState();
-}
-
-class _AmountDialogState extends State<_AmountDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: WinTheme.surface,
-      title: Text(widget.title, style: const TextStyle(color: Colors.white)),
-      content: TextField(
-        controller: _controller,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        style: const TextStyle(color: Colors.white, fontSize: 20),
-        decoration: const InputDecoration(
-          prefixText: '₹ ',
-          prefixStyle: TextStyle(color: WinTheme.green, fontSize: 20),
-          hintText: 'Amount',
-          hintStyle: TextStyle(color: WinTheme.muted),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final amount = double.tryParse(_controller.text.trim());
-            if (amount == null || amount <= 0) return;
-            Navigator.pop(context, amount);
-          },
-          style: FilledButton.styleFrom(backgroundColor: WinTheme.green),
-          child: Text(widget.confirmLabel),
-        ),
-      ],
-    );
-  }
-}
 
 class _DepositTile extends StatelessWidget {
   const _DepositTile({required this.item});
@@ -559,7 +819,7 @@ class _DepositTile extends StatelessWidget {
                   ),
                 ),
                 const Text(
-                  'Add money request',
+                  'Add money',
                   style: TextStyle(color: WinTheme.muted, fontSize: 12),
                 ),
               ],
@@ -680,172 +940,6 @@ class _WithdrawTile extends StatelessWidget {
           ],
         ],
       ),
-    );
-  }
-}
-
-class _PaymentProof {
-  const _PaymentProof({
-    required this.screenshotBase64,
-    required this.screenshotMime,
-  });
-
-  final String screenshotBase64;
-  final String screenshotMime;
-}
-
-class _PaymentProofDialog extends StatefulWidget {
-  const _PaymentProofDialog({required this.amount});
-
-  final double amount;
-
-  @override
-  State<_PaymentProofDialog> createState() => _PaymentProofDialogState();
-}
-
-class _PaymentProofDialogState extends State<_PaymentProofDialog> {
-  File? _imageFile;
-  String? _error;
-  bool _picking = false;
-
-  Future<void> _pickImage() async {
-    setState(() {
-      _picking = true;
-      _error = null;
-    });
-    try {
-      final path = await AndroidImagePicker.pickImage();
-      if (!mounted) return;
-      if (path == null) {
-        setState(() => _picking = false);
-        return;
-      }
-      setState(() {
-        _imageFile = File(path);
-        _picking = false;
-        _error = null;
-      });
-    } on PlatformException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _picking = false;
-        _error = e.message?.isNotEmpty == true
-            ? e.message
-            : 'Could not open gallery. Please reinstall the latest APK.';
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _picking = false;
-        _error = e.toString().replaceFirst('Exception: ', '');
-      });
-    }
-  }
-
-  Future<void> _submit() async {
-    if (_imageFile == null) {
-      setState(() => _error = 'Upload payment screenshot');
-      return;
-    }
-    final bytes = await _imageFile!.readAsBytes();
-    final path = _imageFile!.path.toLowerCase();
-    final mime = path.endsWith('.png')
-        ? 'image/png'
-        : path.endsWith('.webp')
-        ? 'image/webp'
-        : 'image/jpeg';
-    if (!mounted) return;
-    Navigator.of(context).pop(
-      _PaymentProof(
-        screenshotBase64: base64Encode(bytes),
-        screenshotMime: mime,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: const Color(0xFF111B21),
-      title: Text(
-        'Payment proof · ₹${widget.amount.toStringAsFixed(0)}',
-        style: const TextStyle(color: Colors.white, fontSize: 18),
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Upload the payment screenshot. Admin will verify it, then the amount is credited to deposit.',
-              style: TextStyle(color: Color(0xFF8696A0), fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                InkWell(
-                  onTap: _picking ? null : _pickImage,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0B141A),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF2A3942)),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: _picking
-                        ? const Center(
-                            child: SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFF25D366),
-                              ),
-                            ),
-                          )
-                        : _imageFile != null
-                        ? Image.file(_imageFile!, fit: BoxFit.cover)
-                        : const Icon(Icons.image_outlined, color: Color(0xFF8696A0)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _picking ? null : _pickImage,
-                    icon: const Icon(Icons.upload_file_outlined, size: 18),
-                    label: Text(
-                      _imageFile == null ? 'Upload screenshot' : 'Change screenshot',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF25D366),
-                      side: const BorderSide(color: Color(0xFF2A3942)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _picking ? null : _submit,
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
-          child: const Text('Submit'),
-        ),
-      ],
     );
   }
 }

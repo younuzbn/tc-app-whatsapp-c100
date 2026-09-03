@@ -293,6 +293,102 @@ class GameSettingsData {
   };
 }
 
+class UpiPaymentConfig {
+  const UpiPaymentConfig({
+    this.upiId = '',
+    this.qrImageUrl = '',
+  });
+
+  final String upiId;
+  final String qrImageUrl;
+
+  bool get isConfigured => upiId.contains('@');
+  bool get hasQr => qrImageUrl.isNotEmpty;
+
+  String get qrNetworkUrl => AppConfig.mediaUrl(qrImageUrl);
+
+  factory UpiPaymentConfig.fromJson(Map<String, dynamic> json) {
+    return UpiPaymentConfig(
+      upiId: (json['upiId']?.toString() ?? '').trim(),
+      qrImageUrl: (json['upiQrImageUrl']?.toString() ?? '').trim(),
+    );
+  }
+
+  Map<String, dynamic> toJson({
+    String? qrImageBase64,
+    String? qrImageMime,
+  }) => {
+    'upiId': upiId.trim(),
+    if (qrImageBase64 != null && qrImageBase64.isNotEmpty)
+      'upiQrImageBase64': qrImageBase64,
+    if (qrImageMime != null && qrImageMime.isNotEmpty)
+      'upiQrImageMime': qrImageMime,
+  };
+}
+
+class AdminMobileUser {
+  const AdminMobileUser({
+    required this.id,
+    required this.username,
+    required this.name,
+    required this.phoneNumber,
+    required this.displayPhoneNumber,
+    required this.referralCode,
+    required this.isBlocked,
+    required this.deposit,
+    required this.referralBalance,
+    required this.winningsBalance,
+    required this.withdrawableReferral,
+    required this.nonWithdrawableReferral,
+    required this.total,
+    this.memberSince,
+  });
+
+  final String id;
+  final String username;
+  final String name;
+  final String phoneNumber;
+  final String displayPhoneNumber;
+  final String referralCode;
+  final bool isBlocked;
+  final double deposit;
+  final double referralBalance;
+  final double winningsBalance;
+  final double withdrawableReferral;
+  final double nonWithdrawableReferral;
+  final double total;
+  final DateTime? memberSince;
+
+  factory AdminMobileUser.fromJson(Map<String, dynamic> json) {
+    double n(dynamic v) => double.tryParse(v?.toString() ?? '') ?? 0;
+    final wallet = json['wallet'] as Map<String, dynamic>? ?? {};
+    return AdminMobileUser(
+      id: json['id']?.toString() ?? json['_id']?.toString() ?? '',
+      username: json['username']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      phoneNumber: json['phoneNumber']?.toString() ?? '',
+      displayPhoneNumber:
+          json['displayPhoneNumber']?.toString() ??
+          json['phoneNumber']?.toString() ??
+          '',
+      referralCode: json['referralCode']?.toString() ?? '',
+      isBlocked: json['isBlocked'] == true || json['isActive'] == false,
+      deposit: n(wallet['deposit']),
+      referralBalance: n(wallet['referralBalance']),
+      winningsBalance: n(wallet['winningsBalance']),
+      withdrawableReferral: n(
+        wallet['referralWithdrawableBalance'] ?? wallet['withdrawableReferral'],
+      ),
+      nonWithdrawableReferral: n(
+        wallet['referralNonWithdrawableBalance'] ??
+            wallet['nonWithdrawableReferral'],
+      ),
+      total: n(wallet['total']),
+      memberSince: DateTime.tryParse(json['memberSince']?.toString() ?? ''),
+    );
+  }
+}
+
 class AdminService {
   const AdminService();
 
@@ -308,6 +404,60 @@ class AdminService {
 
   Future<void> updateGameSettings(GameSettingsData settings) async {
     await _request('/api/settings', method: 'PUT', requestBody: settings.toJson());
+  }
+
+  Future<UpiPaymentConfig> getUpiSettings() async {
+    final body = await _request('/api/settings');
+    return UpiPaymentConfig.fromJson(body['data'] as Map<String, dynamic>? ?? {});
+  }
+
+  Future<void> updateUpiSettings(
+    UpiPaymentConfig config, {
+    String? qrImageBase64,
+    String? qrImageMime,
+  }) async {
+    await _request(
+      '/api/settings',
+      method: 'PUT',
+      requestBody: config.toJson(
+        qrImageBase64: qrImageBase64,
+        qrImageMime: qrImageMime,
+      ),
+      timeout: const Duration(seconds: 30),
+    );
+  }
+
+  Future<List<AdminMobileUser>> listMobileUsers({String query = ''}) async {
+    final q = query.trim();
+    final path = q.isEmpty
+        ? '/api/admin/mobile-users'
+        : '/api/admin/mobile-users?q=${Uri.encodeQueryComponent(q)}';
+    final body = await _request(path);
+    final items = body['data'] as List<dynamic>? ?? const [];
+    return items
+        .whereType<Map>()
+        .map((item) => AdminMobileUser.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
+  Future<AdminMobileUser> setMobileUserBlocked({
+    required String id,
+    required bool blocked,
+  }) async {
+    final body = await _request(
+      '/api/admin/mobile-users/$id/block',
+      method: 'PUT',
+      requestBody: {'blocked': blocked},
+    );
+    return AdminMobileUser.fromJson(body['data'] as Map<String, dynamic>? ?? {});
+  }
+
+  Future<void> deleteMobileUser(String id) async {
+    await _request(
+      '/api/admin/mobile-users/$id',
+      method: 'DELETE',
+      timeout: const Duration(seconds: 30),
+    );
   }
 
   Future<List<TimeAndCountSetting>> getTimeAndCountSettings() async {
@@ -445,6 +595,7 @@ class AdminService {
     String path, {
     String method = 'GET',
     Map<String, dynamic>? requestBody,
+    Duration timeout = const Duration(seconds: 8),
   }) async {
     final token = SessionService.authToken;
     if (token == null || token.isEmpty) {
@@ -458,16 +609,20 @@ class AdminService {
         case 'PUT':
           response = await http
               .put(uri, headers: _headers(token), body: jsonEncode(requestBody))
-              .timeout(const Duration(seconds: 8));
+              .timeout(timeout);
           break;
         case 'POST':
           response = await http
               .post(uri, headers: _headers(token), body: jsonEncode(requestBody))
-              .timeout(const Duration(seconds: 8));
+              .timeout(timeout);
+          break;
+        case 'DELETE':
+          response = await http
+              .delete(uri, headers: _headers(token))
+              .timeout(timeout);
           break;
         default:
-          response =
-              await http.get(uri, headers: _headers(token)).timeout(const Duration(seconds: 8));
+          response = await http.get(uri, headers: _headers(token)).timeout(timeout);
       }
     } on SocketException {
       throw Exception(_serverUnavailableMessage());

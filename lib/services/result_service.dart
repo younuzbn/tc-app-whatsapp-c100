@@ -139,20 +139,58 @@ class ResultService {
         '${date.year} · ${result.timeSlot.toUpperCase()}';
   }
 
-  /// Plain-text layout for share/copy (5 values, blank line, then 30 in rows of 5).
-  static String formatResultAsText(GameResultData result) {
+  static const Map<String, String> _gameNamesBySlot = {
+    '1pm': 'DEAR 1PM',
+    '3pm': 'KERALA 3PM',
+    '6pm': 'DEAR 6PM',
+    '8pm': 'DEAR 8PM',
+  };
+
+  /// Share/copy layout matching the full results page:
+  /// title, 1–5 stacked vertically, COMPLIMENTS heading, then 3 columns × 10.
+  static String formatResultAsText(
+    GameResultData result, {
+    String? gameName,
+  }) {
+    final date = result.resultDate ?? result.createdAt;
+    final dateLabel = date == null
+        ? ''
+        : '${date.day.toString().padLeft(2, '0')}-'
+            '${date.month.toString().padLeft(2, '0')}-'
+            '${date.year}';
+    final titleName = (gameName != null && gameName.trim().isNotEmpty)
+        ? gameName.trim().toUpperCase()
+        : (_gameNamesBySlot[result.timeSlot.toLowerCase()] ??
+            result.timeSlot.toUpperCase());
+    final title = dateLabel.isEmpty
+        ? titleName
+        : '$titleName ( $dateLabel )';
+
     final top = orderedValues(result, keys: topFieldKeys);
-    final bottom = orderedValues(result, keys: bottomFieldKeys);
-    final lines = <String>[
-      formatResultDateLabel(result),
-      '',
-      top.map((v) => v.isEmpty ? '-' : v).join('  '),
-      '',
-    ];
-    for (var i = 0; i < bottom.length; i += 5) {
-      final row = bottom.sublist(i, i + 5).map((v) => v.isEmpty ? '-' : v);
-      lines.add(row.join('  '));
+    final compliments = orderedValues(result, keys: bottomFieldKeys);
+
+    final lines = <String>[title];
+    for (var i = 0; i < top.length; i++) {
+      final value = top[i].trim().isEmpty ? '—' : top[i].trim();
+      lines.add('${i + 1} : $value');
     }
+
+    lines.add('');
+    lines.add('COMPLIMENTS');
+
+    String cell(int index) {
+      if (index >= compliments.length) return '';
+      return compliments[index].trim();
+    }
+
+    for (var row = 0; row < 10; row++) {
+      final a = cell(row);
+      final b = cell(10 + row);
+      final c = cell(20 + row);
+      if (a.isEmpty && b.isEmpty && c.isEmpty) continue;
+      lines.add('$a     $b     $c'.trimRight());
+    }
+
     return lines.join('\n');
   }
 

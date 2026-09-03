@@ -18,6 +18,9 @@ class WalletSummary {
     required this.winningsBalance,
     required this.lockedBalance,
     required this.withdrawable,
+    required this.withdrawableWinnings,
+    required this.withdrawableReferral,
+    required this.nonWithdrawableReferral,
     required this.isAdminWallet,
     this.payoutDetails = const PayoutDetails(),
   });
@@ -30,6 +33,9 @@ class WalletSummary {
   final double winningsBalance;
   final double lockedBalance;
   final double withdrawable;
+  final double withdrawableWinnings;
+  final double withdrawableReferral;
+  final double nonWithdrawableReferral;
   final bool isAdminWallet;
   final PayoutDetails payoutDetails;
 
@@ -42,16 +48,35 @@ class WalletSummary {
     final deposit = json['activityBalance'] != null
         ? activity
         : n(json['deposit']);
-    final computedTotal = deposit + referral + winnings + locked;
+    final withdrawableReferral = json['withdrawableReferral'] != null
+        ? n(json['withdrawableReferral'])
+        : json['referralWithdrawableBalance'] != null
+            ? n(json['referralWithdrawableBalance'])
+            : ((referral * 50).round() / 100);
+    final nonWithdrawableReferral = json['nonWithdrawableReferral'] != null
+        ? n(json['nonWithdrawableReferral'])
+        : json['referralNonWithdrawableBalance'] != null
+            ? n(json['referralNonWithdrawableBalance'])
+            : n((referral - withdrawableReferral).toString());
+    final withdrawableWinnings = json['withdrawableWinnings'] != null
+        ? n(json['withdrawableWinnings'])
+        : winnings;
+    final computedTotal =
+        deposit + winnings + withdrawableReferral + nonWithdrawableReferral + locked;
     return WalletSummary(
       total: n(json['total']) > 0 ? n(json['total']) : computedTotal,
       deposit: deposit,
-      available: n(json['available'] ?? json['balance']),
+      available: n(json['available'] ?? json['playable'] ?? json['balance']),
       activityBalance: activity,
       referralBalance: referral,
       winningsBalance: winnings,
       lockedBalance: locked,
-      withdrawable: n(json['withdrawable'] ?? json['winningsBalance']),
+      withdrawable: n(
+        json['withdrawable'] ?? (withdrawableWinnings + withdrawableReferral),
+      ),
+      withdrawableWinnings: withdrawableWinnings,
+      withdrawableReferral: withdrawableReferral,
+      nonWithdrawableReferral: nonWithdrawableReferral,
       isAdminWallet: json['isAdminWallet'] == true,
       payoutDetails: PayoutDetails.fromJson(
         json['payoutDetails'] as Map<String, dynamic>?,
@@ -208,25 +233,35 @@ class WalletTransactionItem {
   }
 
   String get title {
-    switch (type) {
-      case 'topup':
-        return 'Money added';
-      case 'withdraw':
-        return 'Withdrawal';
-      case 'bet':
-        return 'Entry placed';
-      case 'bet_refund':
-        return 'Entry refund';
-      case 'winning':
-        return 'Winning credited';
-      case 'welcome_bonus':
-        return 'Welcome bonus';
-      case 'referral_reward':
-        return 'Referral bonus';
-      case 'referral_commission':
-        return 'Referral commission';
+    final base = switch (type) {
+      'topup' => 'Money added',
+      'withdraw' => 'Withdrawal',
+      'bet' => 'Entry placed',
+      'bet_refund' => 'Entry refund',
+      'winning' => 'Winning credited',
+      'welcome_bonus' => 'Welcome bonus',
+      'referral_reward' => 'Referral bonus',
+      'referral_commission' => 'Referral commission',
+      _ => type,
+    };
+    if (bucketLabel.isEmpty) return base;
+    return '$base · $bucketLabel';
+  }
+
+  String get bucketLabel {
+    switch (bucket) {
+      case 'activity':
+        return 'Deposit balance';
+      case 'winnings':
+        return 'Winning balance';
+      case 'referral_withdrawable':
+        return 'Withdrawable referral balance';
+      case 'referral_non_withdrawable':
+        return 'Non withdrawable referral balance';
+      case 'referral':
+        return 'Referral balance';
       default:
-        return type;
+        return '';
     }
   }
 }
@@ -264,16 +299,15 @@ class WalletService {
     }
   }
 
-  Future<WalletSummary> addFunds({
+  Future<CashfreeOrderSession> createCashfreeOrder({
     required double amount,
-    required String screenshotBase64,
-    String screenshotMime = 'image/jpeg',
+    String userId = '',
   }) async {
     final token = SessionService.authToken;
     if (token == null || token.isEmpty) {
       throw Exception('Login required');
     }
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/wallet/add');
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/payments/create-order');
     try {
       final response = await http
           .post(
@@ -281,17 +315,42 @@ class WalletService {
             headers: _headers(token),
             body: jsonEncode({
               'amount': amount,
-              'screenshotBase64': screenshotBase64,
-              'screenshotMime': screenshotMime,
+              'user_id': userId,
             }),
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 20));
       final body = _decodeBody(response.body);
       if (response.statusCode >= 400 || body['success'] != true) {
-        throw Exception(body['message'] ?? 'Failed to add funds');
+        throw Exception(body['message'] ?? 'Failed to start payment');
       }
       final data = body['data'] as Map<String, dynamic>? ?? {};
-      return WalletSummary.fromJson(data);
+      return CashfreeOrderSession.fromJson(data);
+    } on SocketException {
+      throw Exception(_serverUnavailableMessage());
+    } on HttpException {
+      throw Exception(_serverUnavailableMessage());
+    } on TimeoutException {
+      throw Exception(_serverUnavailableMessage());
+    }
+  }
+
+  Future<PaymentOrderStatus> getPaymentStatus(String orderId) async {
+    final token = SessionService.authToken;
+    if (token == null || token.isEmpty) {
+      throw Exception('Login required');
+    }
+    final uri = Uri.parse(
+      '${AppConfig.apiBaseUrl}/api/payments/status?order_id=${Uri.encodeQueryComponent(orderId)}',
+    );
+    try {
+      final response =
+          await http.get(uri, headers: _headers(token)).timeout(const Duration(seconds: 12));
+      final body = _decodeBody(response.body);
+      if (response.statusCode >= 400 || body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to check payment');
+      }
+      final data = body['data'] as Map<String, dynamic>? ?? {};
+      return PaymentOrderStatus.fromJson(data);
     } on SocketException {
       throw Exception(_serverUnavailableMessage());
     } on HttpException {
@@ -518,5 +577,54 @@ class WalletService {
 
   String _serverUnavailableMessage() {
     return 'Server on ${AppConfig.apiBaseUrl} is not reachable right now.';
+  }
+}
+
+class CashfreeOrderSession {
+  const CashfreeOrderSession({
+    required this.orderId,
+    required this.paymentSessionId,
+    required this.checkoutUrl,
+    required this.amount,
+  });
+
+  final String orderId;
+  final String paymentSessionId;
+  final String checkoutUrl;
+  final double amount;
+
+  factory CashfreeOrderSession.fromJson(Map<String, dynamic> json) {
+    return CashfreeOrderSession(
+      orderId: json['order_id']?.toString() ?? '',
+      paymentSessionId: json['payment_session_id']?.toString() ?? '',
+      checkoutUrl: json['checkout_url']?.toString() ?? '',
+      amount: double.tryParse(json['amount']?.toString() ?? '') ?? 0,
+    );
+  }
+}
+
+class PaymentOrderStatus {
+  const PaymentOrderStatus({
+    required this.orderId,
+    required this.status,
+    required this.amount,
+    required this.credited,
+  });
+
+  final String orderId;
+  final String status;
+  final double amount;
+  final bool credited;
+
+  bool get rejected => status == 'rejected';
+
+  factory PaymentOrderStatus.fromJson(Map<String, dynamic> json) {
+    final status = json['status']?.toString() ?? 'pending';
+    return PaymentOrderStatus(
+      orderId: json['order_id']?.toString() ?? '',
+      status: status,
+      amount: double.tryParse(json['amount']?.toString() ?? '') ?? 0,
+      credited: json['credited'] == true || status == 'credited',
+    );
   }
 }
