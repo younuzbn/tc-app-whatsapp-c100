@@ -1,10 +1,6 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../services/android_image_picker.dart';
 import '../../../services/wallet_service.dart';
 
 class AdminWithdrawRequestsView extends StatefulWidget {
@@ -16,15 +12,19 @@ class AdminWithdrawRequestsView extends StatefulWidget {
 }
 
 class _AdminWithdrawRequestsViewState extends State<AdminWithdrawRequestsView> {
-  static const Color _bg = Color(0xFF0B141A);
-  static const Color _surface = Color(0xFF111B21);
-  static const Color _green = Color(0xFF25D366);
-  static const Color _muted = Color(0xFF8696A0);
+  static const Color _bg = Color(0xFF07090C);
+  static const Color _surface = Color(0xFF12161C);
+  static const Color _card = Color(0xFF171C23);
+  static const Color _line = Color(0xFF2A323C);
+  static const Color _muted = Color(0xFF8B95A1);
+  static const Color _green = Color(0xFF2FCB71);
+  static const Color _cream = Color(0xFFF4F1EA);
 
   final _service = const WalletService();
   bool _loading = true;
   String? _error;
-  String _filter = 'all';
+  String _filter = 'processing';
+  String? _busyId;
   List<WithdrawRequestItem> _items = [];
 
   @override
@@ -39,9 +39,7 @@ class _AdminWithdrawRequestsViewState extends State<AdminWithdrawRequestsView> {
       _error = null;
     });
     try {
-      final items = await _service.fetchAdminWithdrawRequests(
-        status: _filter == 'all' ? null : _filter,
-      );
+      final items = await _service.fetchAdminWithdrawRequests(status: _filter);
       if (!mounted) return;
       setState(() {
         _items = items;
@@ -56,31 +54,101 @@ class _AdminWithdrawRequestsViewState extends State<AdminWithdrawRequestsView> {
     }
   }
 
-  Future<void> _act(WithdrawRequestItem item, String action) async {
-    final result = await showDialog<_AdminActionResult>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => _AdminWithdrawActionDialog(action: action),
+  String _rupee(double amount) {
+    if (amount.truncateToDouble() == amount) return amount.toStringAsFixed(0);
+    return amount.toStringAsFixed(2);
+  }
+
+  Future<void> _copy(String label, String value) async {
+    if (value.trim().isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: value.trim()));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: _card,
+        content: Text(
+          '$label copied',
+          style: const TextStyle(color: _cream),
+        ),
+      ),
     );
-    if (result == null || !mounted) return;
+  }
+
+  Future<bool> _confirm({
+    required String title,
+    required String body,
+    required String confirmLabel,
+    required Color confirmColor,
+  }) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: _card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: _cream,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+        content: Text(
+          body,
+          style: const TextStyle(color: _muted, height: 1.4),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: _muted)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: confirmColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
+  Future<void> _act(WithdrawRequestItem item, String action) async {
+    if (_busyId != null) return;
+    final amount = '₹${_rupee(item.amount)}';
+    final phone = item.phoneNumber.isNotEmpty ? item.phoneNumber : item.username;
+    final isReject = action == 'reject';
+    final confirmed = await _confirm(
+      title: isReject ? 'Reject request?' : 'Mark as withdraw?',
+      body: isReject
+          ? 'Return $amount to $phone. This request will be marked rejected.'
+          : 'Confirm you have sent $amount to $phone. This request will be marked withdrawn.',
+      confirmLabel: isReject ? 'Reject' : 'Mark as withdraw',
+      confirmColor: isReject ? const Color(0xFFDC4A4A) : _green,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _busyId = item.id);
     try {
       await _service.updateAdminWithdrawRequest(
         id: item.id,
         action: action,
-        note: result.note,
-        rejectReason: result.reason,
-        imageBase64: result.imageBase64,
-        imageMime: result.imageMime,
+        rejectReason: isReject ? 'Rejected' : '',
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          backgroundColor: _card,
           content: Text(
-            action == 'reject'
-                ? 'Marked as Failed'
-                : action == 'complete'
-                    ? 'Marked as Processed'
-                    : 'Approved',
+            isReject ? 'Request rejected' : 'Marked as withdrawn',
+            style: const TextStyle(color: _cream),
           ),
         ),
       );
@@ -88,17 +156,17 @@ class _AdminWithdrawRequestsViewState extends State<AdminWithdrawRequestsView> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(
+          backgroundColor: _card,
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+            style: const TextStyle(color: Color(0xFFFF8A80)),
+          ),
+        ),
       );
+    } finally {
+      if (mounted) setState(() => _busyId = null);
     }
-  }
-
-  void _openImage(String url) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => _FullScreenImagePage(imageUrl: url),
-      ),
-    );
   }
 
   @override
@@ -107,40 +175,48 @@ class _AdminWithdrawRequestsViewState extends State<AdminWithdrawRequestsView> {
       backgroundColor: _bg,
       appBar: AppBar(
         backgroundColor: _bg,
-        foregroundColor: Colors.white,
-        title: const Text('Withdraw requests'),
+        foregroundColor: _cream,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          'Withdrawals',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.2,
+          ),
+        ),
       ),
       body: Column(
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-            child: Row(
-              children: [
-                for (final value in const [
-                  'all',
-                  'processing',
-                  'processed',
-                  'failed',
-                ])
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(value[0].toUpperCase() + value.substring(1)),
-                      selected: _filter == value,
-                      onSelected: (_) {
-                        setState(() => _filter = value);
-                        _load();
-                      },
-                      selectedColor: _green,
-                      labelStyle: TextStyle(
-                        color: _filter == value ? Colors.black : Colors.white,
-                        fontWeight: FontWeight.w700,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: _surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _line),
+              ),
+              child: Row(
+                children: [
+                  for (final tab in const [
+                    ('processing', 'Pending'),
+                    ('processed', 'Withdrawn'),
+                    ('failed', 'Rejected'),
+                  ])
+                    Expanded(
+                      child: _FilterTab(
+                        label: tab.$2,
+                        selected: _filter == tab.$1,
+                        onTap: () {
+                          if (_filter == tab.$1) return;
+                          setState(() => _filter = tab.$1);
+                          _load();
+                        },
                       ),
-                      backgroundColor: _surface,
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
           Expanded(
@@ -148,163 +224,42 @@ class _AdminWithdrawRequestsViewState extends State<AdminWithdrawRequestsView> {
                 ? const Center(child: CircularProgressIndicator(color: _green))
                 : RefreshIndicator(
                     color: _green,
+                    backgroundColor: _card,
                     onRefresh: _load,
                     child: _items.isEmpty
                         ? ListView(
                             children: [
-                              const SizedBox(height: 80),
+                              const SizedBox(height: 120),
+                              Icon(
+                                Icons.account_balance_wallet_outlined,
+                                size: 36,
+                                color: _muted.withValues(alpha: 0.7),
+                              ),
+                              const SizedBox(height: 12),
                               Text(
-                                _error ?? 'No withdraw requests.',
+                                _error ?? 'No requests here.',
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(color: _muted),
+                                style: const TextStyle(
+                                  color: _muted,
+                                  fontSize: 14,
+                                ),
                               ),
                             ],
                           )
                         : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
                             itemCount: _items.length,
-                            separatorBuilder: (_, _) => const SizedBox(height: 10),
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 14),
                             itemBuilder: (context, index) {
                               final item = _items[index];
-                              return Container(
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: _surface,
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: const Color(0xFF1F2C34)),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            item.phoneNumber.isNotEmpty
-                                                ? item.phoneNumber
-                                                : item.username,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: item.statusColor()
-                                                .withValues(alpha: 0.18),
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          child: Text(
-                                            item.displayStatus,
-                                            style: TextStyle(
-                                              color: item.statusColor(),
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      '₹${item.amount.toStringAsFixed(item.amount.truncateToDouble() == item.amount ? 0 : 2)}',
-                                      style: const TextStyle(
-                                        color: _green,
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'A/C ${item.accountNumber}',
-                                      style: const TextStyle(color: Colors.white),
-                                    ),
-                                    Text(
-                                      'IFSC ${item.ifsc}',
-                                      style: const TextStyle(color: _muted),
-                                    ),
-                                    Text(
-                                      'UPI ${item.upiId}',
-                                      style: const TextStyle(color: _muted),
-                                    ),
-                                    if (item.rejectReason.isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 6),
-                                        child: Text(
-                                          'Reason: ${item.rejectReason}',
-                                          style: const TextStyle(color: Colors.redAccent),
-                                        ),
-                                      ),
-                                    if (item.adminNote.isNotEmpty &&
-                                        item.adminNote != item.rejectReason)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 6),
-                                        child: Text(
-                                          'Note: ${item.adminNote}',
-                                          style: const TextStyle(color: _muted),
-                                        ),
-                                      ),
-                                    if (item.receiptUrl.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      _ProofThumb(
-                                        label: 'Payment receipt',
-                                        url: item.receiptUrl,
-                                        onTap: () => _openImage(item.receiptUrl),
-                                      ),
-                                    ],
-                                    if (item.rejectImageUrl.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      _ProofThumb(
-                                        label: 'Reject proof',
-                                        url: item.rejectImageUrl,
-                                        onTap: () => _openImage(item.rejectImageUrl),
-                                      ),
-                                    ],
-                                    if (item.status == 'pending' ||
-                                        item.status == 'approved') ...[
-                                      const SizedBox(height: 12),
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 8,
-                                        children: [
-                                          if (item.status == 'pending')
-                                            FilledButton(
-                                              onPressed: () => _act(item, 'accept'),
-                                              style: FilledButton.styleFrom(
-                                                backgroundColor: _green,
-                                                foregroundColor: Colors.black,
-                                              ),
-                                              child: const Text('Approve'),
-                                            ),
-                                          if (item.status == 'approved')
-                                            FilledButton(
-                                              onPressed: () => _act(item, 'complete'),
-                                              style: FilledButton.styleFrom(
-                                                backgroundColor: const Color(0xFF60A5FA),
-                                              ),
-                                              child: const Text('Mark processed'),
-                                            ),
-                                          OutlinedButton(
-                                            onPressed: () => _act(item, 'reject'),
-                                            style: OutlinedButton.styleFrom(
-                                              foregroundColor: Colors.redAccent,
-                                              side: const BorderSide(
-                                                color: Colors.redAccent,
-                                              ),
-                                            ),
-                                            child: const Text('Reject'),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ],
-                                ),
+                              return _WithdrawCard(
+                                item: item,
+                                rupee: _rupee(item.amount),
+                                busy: _busyId == item.id,
+                                onCopy: _copy,
+                                onWithdraw: () => _act(item, 'complete'),
+                                onReject: () => _act(item, 'reject'),
                               );
                             },
                           ),
@@ -313,7 +268,10 @@ class _AdminWithdrawRequestsViewState extends State<AdminWithdrawRequestsView> {
           if (_error != null && _items.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+              child: Text(
+                _error!,
+                style: const TextStyle(color: Color(0xFFFF8A80)),
+              ),
             ),
         ],
       ),
@@ -321,286 +279,293 @@ class _AdminWithdrawRequestsViewState extends State<AdminWithdrawRequestsView> {
   }
 }
 
-class _AdminActionResult {
-  const _AdminActionResult({
-    required this.note,
-    required this.reason,
-    this.imageBase64,
-    this.imageMime = 'image/jpeg',
+class _FilterTab extends StatelessWidget {
+  const _FilterTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
   });
 
-  final String note;
-  final String reason;
-  final String? imageBase64;
-  final String imageMime;
-}
-
-class _AdminWithdrawActionDialog extends StatefulWidget {
-  const _AdminWithdrawActionDialog({required this.action});
-
-  final String action;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
-  State<_AdminWithdrawActionDialog> createState() =>
-      _AdminWithdrawActionDialogState();
-}
-
-class _AdminWithdrawActionDialogState extends State<_AdminWithdrawActionDialog> {
-  final _note = TextEditingController();
-  File? _imageFile;
-  String? _error;
-  bool _picking = false;
-
-  bool get _isReject => widget.action == 'reject';
-  bool get _isApprove => widget.action == 'accept';
-
-  @override
-  void dispose() {
-    _note.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickImage() async {
-    setState(() {
-      _picking = true;
-      _error = null;
-    });
-    try {
-      final path = await AndroidImagePicker.pickImage();
-      if (!mounted) return;
-      if (path == null) {
-        setState(() => _picking = false);
-        return;
-      }
-      setState(() {
-        _imageFile = File(path);
-        _picking = false;
-      });
-    } on PlatformException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _picking = false;
-        _error = e.message?.isNotEmpty == true ? e.message : 'Could not open gallery.';
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _picking = false;
-        _error = e.toString().replaceFirst('Exception: ', '');
-      });
-    }
-  }
-
-  Future<void> _submit() async {
-    final text = _note.text.trim();
-    if (_isReject && text.length < 4) {
-      setState(() => _error = 'Enter a reason for rejecting this request.');
-      return;
-    }
-
-    String? imageBase64;
-    var mime = 'image/jpeg';
-    if (_imageFile != null) {
-      final bytes = await _imageFile!.readAsBytes();
-      imageBase64 = base64Encode(bytes);
-      final path = _imageFile!.path.toLowerCase();
-      mime = path.endsWith('.png')
-          ? 'image/png'
-          : path.endsWith('.webp')
-              ? 'image/webp'
-              : 'image/jpeg';
-    }
-    if (!mounted) return;
-    Navigator.pop(
-      context,
-      _AdminActionResult(
-        note: _isReject ? '' : text,
-        reason: _isReject ? text : '',
-        imageBase64: imageBase64,
-        imageMime: mime,
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        height: 38,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF2FCB71) : Colors.transparent,
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? const Color(0xFF07110A) : const Color(0xFF8B95A1),
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
+        ),
       ),
     );
+  }
+}
+
+class _WithdrawCard extends StatelessWidget {
+  const _WithdrawCard({
+    required this.item,
+    required this.rupee,
+    required this.busy,
+    required this.onCopy,
+    required this.onWithdraw,
+    required this.onReject,
+  });
+
+  final WithdrawRequestItem item;
+  final String rupee;
+  final bool busy;
+  final void Function(String label, String value) onCopy;
+  final VoidCallback onWithdraw;
+  final VoidCallback onReject;
+
+  static const Color _cream = Color(0xFFF4F1EA);
+  static const Color _muted = Color(0xFF8B95A1);
+  static const Color _line = Color(0xFF2A323C);
+  static const Color _green = Color(0xFF2FCB71);
+
+  bool get _canAct =>
+      item.status == 'pending' || item.status == 'approved';
+
+  String get _statusLabel {
+    switch (item.status) {
+      case 'completed':
+        return 'Withdrawn';
+      case 'rejected':
+        return 'Rejected';
+      default:
+        return 'Pending';
+    }
+  }
+
+  Color get _statusColor {
+    switch (item.status) {
+      case 'completed':
+        return _green;
+      case 'rejected':
+        return const Color(0xFFEF6B6B);
+      default:
+        return const Color(0xFFE2C48A);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final title = _isReject
-        ? 'Reject request'
-        : _isApprove
-            ? 'Approve request'
-            : 'Mark processed';
-    final imageLabel = _isReject ? 'Optional proof image' : 'Payment receipt (optional)';
-    return AlertDialog(
-      backgroundColor: const Color(0xFF111B21),
-      title: Text(title, style: const TextStyle(color: Colors.white)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: _note,
-              maxLines: _isReject ? 3 : 2,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: _isReject ? 'Reason (required)' : 'Note (optional)',
-                labelStyle: const TextStyle(color: Color(0xFF8696A0)),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(imageLabel, style: const TextStyle(color: Color(0xFF8696A0), fontSize: 12)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                InkWell(
-                  onTap: _picking ? null : _pickImage,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0B141A),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF2A3942)),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: _picking
-                        ? const Center(
-                            child: SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFF25D366),
-                              ),
-                            ),
-                          )
-                        : _imageFile != null
-                            ? Image.file(_imageFile!, fit: BoxFit.cover)
-                            : const Icon(Icons.image_outlined, color: Color(0xFF8696A0)),
+    final phone =
+        item.phoneNumber.isNotEmpty ? item.phoneNumber : item.username;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171C23),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  phone,
+                  style: const TextStyle(
+                    color: _cream,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
                   ),
                 ),
-                const SizedBox(width: 12),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: _statusColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  _statusLabel,
+                  style: TextStyle(
+                    color: _statusColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            '₹$rupee',
+            style: const TextStyle(
+              color: _cream,
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+              height: 1,
+              letterSpacing: -0.6,
+            ),
+          ),
+          if (item.userName.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              item.userName.trim(),
+              style: const TextStyle(color: _muted, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10141A),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                _CopyRow(
+                  label: 'A/C',
+                  value: item.accountNumber,
+                  onCopy: () => onCopy('Account number', item.accountNumber),
+                ),
+                _CopyRow(
+                  label: 'IFSC',
+                  value: item.ifsc,
+                  onCopy: () => onCopy('IFSC', item.ifsc),
+                ),
+                _CopyRow(
+                  label: 'UPI',
+                  value: item.upiId,
+                  onCopy: () => onCopy('UPI ID', item.upiId),
+                ),
+              ],
+            ),
+          ),
+          if (_canAct) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _picking ? null : _pickImage,
-                    icon: const Icon(Icons.upload_file_outlined, size: 18),
-                    label: Text(_imageFile == null ? 'Upload image' : 'Change image'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF25D366),
-                      side: const BorderSide(color: Color(0xFF2A3942)),
+                  child: SizedBox(
+                    height: 46,
+                    child: OutlinedButton(
+                      onPressed: busy ? null : onReject,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFEF6B6B),
+                        side: const BorderSide(color: Color(0xFF5A3333)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Reject',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: SizedBox(
+                    height: 46,
+                    child: FilledButton(
+                      onPressed: busy ? null : onWithdraw,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _green,
+                        foregroundColor: const Color(0xFF07110A),
+                        disabledBackgroundColor: _green.withValues(alpha: 0.45),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: busy
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF07110A),
+                              ),
+                            )
+                          : const Text(
+                              'Mark as withdraw',
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
                     ),
                   ),
                 ),
               ],
             ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
-            ],
           ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _picking ? null : _submit,
-          style: FilledButton.styleFrom(
-            backgroundColor: _isReject ? Colors.redAccent : const Color(0xFF25D366),
-          ),
-          child: Text(_isReject
-              ? 'Reject'
-              : _isApprove
-                  ? 'Approve'
-                  : 'Mark processed'),
-        ),
-      ],
-    );
-  }
-}
-
-class _ProofThumb extends StatelessWidget {
-  const _ProofThumb({
-    required this.label,
-    required this.url,
-    required this.onTap,
-  });
-
-  final String label;
-  final String url;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.network(
-              url,
-              width: 56,
-              height: 56,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(
-                width: 56,
-                height: 56,
-                color: const Color(0xFF1F2C34),
-                child: const Icon(Icons.image_not_supported, color: Color(0xFF8696A0)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(label, style: const TextStyle(color: Color(0xFF8696A0))),
         ],
       ),
     );
   }
 }
 
-class _FullScreenImagePage extends StatelessWidget {
-  const _FullScreenImagePage({required this.imageUrl});
+class _CopyRow extends StatelessWidget {
+  const _CopyRow({
+    required this.label,
+    required this.value,
+    required this.onCopy,
+  });
 
-  final String imageUrl;
+  final String label;
+  final String value;
+  final VoidCallback onCopy;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: InteractiveViewer(
-                minScale: 0.5,
-                maxScale: 5,
-                child: Center(
-                  child: Image.network(
-                    imageUrl,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => const Text(
-                      'Unable to load image',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  ),
-                ),
+    final empty = value.trim().isEmpty;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 42,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF6F7A86),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            Positioned(
-              top: 8,
-              left: 8,
-              child: IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close, color: Colors.white),
+          ),
+          Expanded(
+            child: Text(
+              empty ? '—' : value,
+              style: const TextStyle(
+                color: Color(0xFFF4F1EA),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ],
-        ),
+          ),
+          if (!empty)
+            IconButton(
+              onPressed: onCopy,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(
+                Icons.copy_rounded,
+                size: 16,
+                color: Color(0xFF8B95A1),
+              ),
+            ),
+        ],
       ),
     );
   }

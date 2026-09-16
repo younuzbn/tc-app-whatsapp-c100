@@ -9,6 +9,7 @@ import '../price_chart/price_chart_view.dart';
 import '../profile/profile_view.dart';
 import '../refer/refer_and_earn_view.dart';
 import '../results/results_list_view.dart';
+import '../wallet/add_money_view.dart';
 import '../wallet/wallet_view.dart';
 import '../winning/winning_chat_view.dart';
 import 'game_chat_data.dart';
@@ -47,9 +48,9 @@ class HomeView extends StackedView<HomeViewModel> {
                   await viewModel.refreshNotifications();
                 }
               },
-              onWalletTap: () async {
+              onAddMoneyTap: () async {
                 await Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(builder: (_) => const WalletView()),
+                  MaterialPageRoute<void>(builder: (_) => const AddMoneyView()),
                 );
                 if (context.mounted) {
                   await viewModel.refreshWallet();
@@ -181,7 +182,7 @@ class _TopBar extends StatelessWidget {
     required this.walletLoading,
     required this.unreadNotifications,
     required this.selectedTab,
-    required this.onWalletTap,
+    required this.onAddMoneyTap,
     required this.onNotificationsTap,
     required this.onPriceChartTap,
   });
@@ -191,7 +192,7 @@ class _TopBar extends StatelessWidget {
   final bool walletLoading;
   final int unreadNotifications;
   final HomeTab selectedTab;
-  final Future<void> Function() onWalletTap;
+  final Future<void> Function() onAddMoneyTap;
   final Future<void> Function() onNotificationsTap;
   final VoidCallback onPriceChartTap;
 
@@ -246,43 +247,68 @@ class _TopBar extends StatelessWidget {
               ),
             ),
           ] else ...[
-            // Wallet and notification icons on other tabs
-            Material(
-              color: HomeView._chipInactive,
-              borderRadius: BorderRadius.circular(20),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () => onWalletTap(),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.account_balance_wallet_outlined,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      if (walletLoading)
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: HomeView._green,
-                          ),
-                        )
-                      else
-                        Text(
-                          walletChipText.isEmpty ? '—' : walletChipText,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
+            Flexible(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Material(
+                    color: HomeView._chipInactive,
+                    borderRadius: BorderRadius.circular(20),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () => onAddMoneyTap(),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 7, 12, 7),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 22,
+                              height: 22,
+                              decoration: const BoxDecoration(
+                                color: HomeView._green,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.add,
+                                color: Colors.black,
+                                size: 16,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            if (walletLoading)
+                              const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: HomeView._green,
+                                ),
+                              )
+                            else
+                              Text(
+                                walletChipText.isEmpty ? '—' : walletChipText,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Add Money',
+                              style: TextStyle(
+                                color: Color(0xFFD1D5DB),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ),
-                    ],
+                      ),
+                    ),
                   ),
                 ),
               ),

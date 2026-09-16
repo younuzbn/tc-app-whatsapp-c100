@@ -41,7 +41,6 @@ class GameChatViewModel extends BaseViewModel {
   final List<String> numberModes = const ['1D', '2D', '3D'];
   final List<SalesRecord> sales = [];
   final List<ResultChatMessage> resultMessages = [];
-  final List<WalletTopupMessage> walletTopups = [];
   final List<WinningReport> winningMessages = [];
   final ScrollController chatScrollController = ScrollController();
 
@@ -60,6 +59,7 @@ class GameChatViewModel extends BaseViewModel {
   int _salesPage = 1;
   int _salesPages = 1;
   bool loadingOlderSales = false;
+  bool loadingMessages = true;
 
   bool get hasOlderSales => _salesPage < _salesPages;
 
@@ -116,15 +116,16 @@ class GameChatViewModel extends BaseViewModel {
         unawaited(refreshClosedSessionResultStatus());
       }
       if (_resultPollTick % 20 == 0) {
-        unawaited(refreshWalletTopups());
         unawaited(refreshWinnings());
         unawaited(refreshResultMessages());
       }
     });
-    await _loadConfigs();
     chatScrollController.addListener(_onChatScroll);
-    await loadSales();
-    await refreshClosedSessionResultStatus();
+    await Future.wait([
+      refreshAppConfigAndTimes(),
+      loadSales(),
+    ]);
+    unawaited(refreshClosedSessionResultStatus());
   }
 
   Future<void> refreshResultMessages() async {
@@ -151,18 +152,6 @@ class GameChatViewModel extends BaseViewModel {
     } catch (_) {}
   }
 
-  Future<void> refreshWalletTopups() async {
-    try {
-      final topupItems = await _salesService.getMyWalletTopups();
-      walletTopups
-        ..clear()
-        ..addAll(topupItems);
-      notifyListeners();
-    } catch (_) {
-      // Keep previous deposit requests if refresh fails.
-    }
-  }
-
   void _onChatScroll() {
     if (!chatScrollController.hasClients) return;
     final pos = chatScrollController.position;
@@ -184,10 +173,6 @@ class GameChatViewModel extends BaseViewModel {
     if (key == _saleConfirmSyncKey) return;
     _saleConfirmSyncKey = key;
     unawaited(_refreshLatestSales());
-  }
-
-  Future<void> _loadConfigs() async {
-    await refreshAppConfigAndTimes();
   }
 
   Future<void> refreshAppConfigAndTimes() async {
@@ -220,7 +205,6 @@ class GameChatViewModel extends BaseViewModel {
     } catch (_) {
       _timeSetting = null;
     }
-    await refreshClosedSessionResultStatus();
     notifyListeners();
   }
 
@@ -280,29 +264,36 @@ class GameChatViewModel extends BaseViewModel {
   }
 
   Future<void> loadSales() async {
-    setBusy(true);
+    final isFirstLoad =
+        sales.isEmpty && resultMessages.isEmpty && winningMessages.isEmpty;
     errorMessage = null;
+    if (isFirstLoad) {
+      loadingMessages = true;
+    }
+    setBusy(true);
     notifyListeners();
 
     try {
-      final items = await _salesService.getSales(
-        timeSlot: game.timeSlot,
-        page: 1,
-        limit: 30,
-      );
-      final resultItems = await _salesService.getResultMessages(
-        timeSlot: game.timeSlot,
-      );
-      var topupItems = <WalletTopupMessage>[];
-      try {
-        topupItems = await _salesService.getMyWalletTopups();
-      } catch (_) {}
+      late final SalesPage items;
+      var resultItems = <ResultChatMessage>[];
       var winningItems = <WinningReport>[];
-      try {
-        winningItems = await _winningService.listMyWinnings(
-          timeSlot: game.timeSlot,
-        );
-      } catch (_) {}
+      await Future.wait([
+        _salesService
+            .getSales(
+              timeSlot: game.timeSlot,
+              page: 1,
+              limit: 30,
+            )
+            .then((value) => items = value),
+        _salesService
+            .getResultMessages(timeSlot: game.timeSlot)
+            .then((value) => resultItems = value)
+            .catchError((_) => resultItems),
+        _winningService
+            .listMyWinnings(timeSlot: game.timeSlot)
+            .then((value) => winningItems = value)
+            .catchError((_) => winningItems),
+      ]);
       sales
         ..clear()
         ..addAll(items.sales);
@@ -311,9 +302,6 @@ class GameChatViewModel extends BaseViewModel {
       resultMessages
         ..clear()
         ..addAll(resultItems);
-      walletTopups
-        ..clear()
-        ..addAll(topupItems);
       winningMessages
         ..clear()
         ..addAll(winningItems);
@@ -321,6 +309,7 @@ class GameChatViewModel extends BaseViewModel {
     } catch (error) {
       errorMessage = error.toString().replaceFirst('Exception: ', '');
     } finally {
+      loadingMessages = false;
       setBusy(false);
       notifyListeners();
     }

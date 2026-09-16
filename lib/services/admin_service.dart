@@ -389,6 +389,77 @@ class AdminMobileUser {
   }
 }
 
+class AccountSummaryRow {
+  const AccountSummaryRow({
+    required this.date,
+    required this.totalSalesAmount,
+    required this.totalWinningAmount,
+    required this.balance,
+  });
+
+  final String date;
+  final String totalSalesAmount;
+  final String totalWinningAmount;
+  final String balance;
+
+  factory AccountSummaryRow.fromJson(Map<String, dynamic> json) {
+    return AccountSummaryRow(
+      date: json['date']?.toString() ?? '',
+      totalSalesAmount: json['totalSalesAmount']?.toString() ?? '0.00',
+      totalWinningAmount: json['totalWinningAmount']?.toString() ?? '0.00',
+      balance: json['balance']?.toString() ?? '0.00',
+    );
+  }
+
+  double get salesDouble => double.tryParse(totalSalesAmount) ?? 0;
+  double get winningDouble => double.tryParse(totalWinningAmount) ?? 0;
+  double get balanceDouble => double.tryParse(balance) ?? 0;
+
+  bool get hasActivity =>
+      salesDouble != 0 || winningDouble != 0 || balanceDouble != 0;
+
+  String get balanceSigned => formatSignedAmount(balanceDouble);
+
+  static String formatSignedAmount(num value) {
+    final n = value.toDouble();
+    final body = n.abs().toStringAsFixed(2);
+    return n < 0 ? '-$body' : '+$body';
+  }
+}
+
+class AccountSummaryReport {
+  const AccountSummaryReport({
+    required this.timeSlot,
+    required this.fromDate,
+    required this.toDate,
+    required this.rows,
+    required this.totals,
+  });
+
+  final String timeSlot;
+  final String fromDate;
+  final String toDate;
+  final List<AccountSummaryRow> rows;
+  final AccountSummaryRow totals;
+
+  factory AccountSummaryReport.fromJson(Map<String, dynamic> json) {
+    final items = json['rows'] as List<dynamic>? ?? const [];
+    final totalsJson = json['totals'] as Map<String, dynamic>? ?? {};
+    return AccountSummaryReport(
+      timeSlot: json['timeSlot']?.toString() ?? 'all',
+      fromDate: json['fromDate']?.toString() ?? '',
+      toDate: json['toDate']?.toString() ?? '',
+      rows: items
+          .whereType<Map>()
+          .map((item) => AccountSummaryRow.fromJson(
+                Map<String, dynamic>.from(item),
+              ))
+          .toList(),
+      totals: AccountSummaryRow.fromJson(totalsJson),
+    );
+  }
+}
+
 class AdminService {
   const AdminService();
 
@@ -457,6 +528,30 @@ class AdminService {
       '/api/admin/mobile-users/$id',
       method: 'DELETE',
       timeout: const Duration(seconds: 30),
+    );
+  }
+
+  Future<AccountSummaryReport> getAccountSummary({
+    required String timeSlot,
+    required String fromDate,
+    required String toDate,
+  }) async {
+    final query = {
+      'timeSlot': timeSlot,
+      'fromDate': fromDate,
+      'toDate': toDate,
+    }.entries
+        .map(
+          (entry) =>
+              '${entry.key}=${Uri.encodeQueryComponent(entry.value)}',
+        )
+        .join('&');
+    final body = await _request(
+      '/api/admin/account-summary?$query',
+      timeout: const Duration(seconds: 20),
+    );
+    return AccountSummaryReport.fromJson(
+      body['data'] as Map<String, dynamic>? ?? {},
     );
   }
 

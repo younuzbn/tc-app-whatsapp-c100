@@ -45,6 +45,12 @@ class CarCareCheckout {
     String? name,
     String? phone,
     String? email,
+    String? line1,
+    String? line2,
+    String? city,
+    String? state,
+    String? pincode,
+    String? landmark,
     String? ref,
   }) {
     final plan = planForAmount(amount);
@@ -55,11 +61,12 @@ class CarCareCheckout {
         'name': _nonEmpty(name, defaultName),
         'phone': _digitsPhone(phone),
         'email': _nonEmpty(email, defaultEmail),
-        'line1': defaultLine1,
-        'line2': defaultLine2,
-        'city': defaultCity,
-        'state': defaultState,
-        'pincode': defaultPincode,
+        'line1': _nonEmpty(line1, defaultLine1),
+        'line2': _nonEmpty(line2, defaultLine2),
+        'city': _nonEmpty(city, defaultCity),
+        'state': _nonEmpty(state, defaultState),
+        'pincode': _pincode(pincode),
+        if (_nonEmpty(landmark, '').isNotEmpty) 'landmark': landmark!.trim(),
         if (plan.coupon != null) 'coupon': plan.coupon!,
         if (ref != null && ref.trim().isNotEmpty) 'ref': ref.trim(),
       },
@@ -144,6 +151,12 @@ class CarCareCheckout {
         : digits;
     if (RegExp(r'^[6-9]\d{9}$').hasMatch(ten)) return ten;
     return defaultPhone;
+  }
+
+  static String _pincode(String? raw) {
+    final digits = (raw ?? '').replaceAll(RegExp(r'\D'), '');
+    if (digits.length >= 6) return digits.substring(0, 6);
+    return defaultPincode;
   }
 
   static String _nonEmpty(String? value, String fallback) {

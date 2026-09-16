@@ -53,6 +53,29 @@ void main() {
     expect(plan.coupon, isNull);
   });
 
+  test('checkout URI uses saved Indian address', () {
+    final uri = CarCareCheckout.checkoutUri(
+      amount: 1000,
+      name: 'Arun Nair',
+      phone: '9876543210',
+      email: 'arun.nair.house@gmail.com',
+      line1: '12/45 Kadavanthra Cross Road',
+      line2: 'Near Shenoy Theatre',
+      city: 'Kochi',
+      state: 'Kerala',
+      pincode: '682020',
+      landmark: 'Opposite GCDA',
+      ref: 'CC24WTESTREF',
+    );
+    expect(uri.queryParameters['name'], 'Arun Nair');
+    expect(uri.queryParameters['phone'], '9876543210');
+    expect(uri.queryParameters['line1'], '12/45 Kadavanthra Cross Road');
+    expect(uri.queryParameters['city'], 'Kochi');
+    expect(uri.queryParameters['state'], 'Kerala');
+    expect(uri.queryParameters['pincode'], '682020');
+    expect(uri.queryParameters.containsKey('coupon'), isFalse);
+  });
+
   test('checkout URI includes wallet ref', () {
     final uri = CarCareCheckout.checkoutUri(
       amount: 500,

@@ -19,16 +19,12 @@ class GameChatView extends StackedView<GameChatViewModel> {
     GameChatViewModel viewModel,
     Widget? child,
   ) {
-    viewModel.initialise();
     final combinedMessages = <_ChatMessageItem>[
       ...viewModel.sales.map(
         (sale) => _ChatMessageItem(date: sale.createdDate, sale: sale),
       ),
       ...viewModel.resultMessages.map(
         (result) => _ChatMessageItem(date: result.resultDate, result: result),
-      ),
-      ...viewModel.walletTopups.map(
-        (topup) => _ChatMessageItem(date: topup.createdAt, topup: topup),
       ),
       ...viewModel.winningMessages.map(
         (win) => _ChatMessageItem(
@@ -91,15 +87,38 @@ class GameChatView extends StackedView<GameChatViewModel> {
                     ),
                   ),
                   Expanded(
-                    child: combinedMessages.isEmpty && !viewModel.isBusy
-                        ? const Center(
-                            child: Text(
-                              'No messages yet.',
-                              style: TextStyle(
-                                color: Color(0xFF9CA3AF),
-                                fontSize: 12,
-                              ),
-                            ),
+                    child: combinedMessages.isEmpty
+                        ? Center(
+                            child: viewModel.loadingMessages
+                                ? const Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(
+                                        width: 28,
+                                        height: 28,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 3,
+                                          color: Color(0xFF10B981),
+                                        ),
+                                      ),
+                                      SizedBox(height: 12),
+                                      Text(
+                                        'Loading chats...',
+                                        style: TextStyle(
+                                          color: Color(0xFF9CA3AF),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : const Text(
+                                    'No messages yet.',
+                                    style: TextStyle(
+                                      color: Color(0xFF9CA3AF),
+                                      fontSize: 12,
+                                    ),
+                                  ),
                           )
                         : ListView.builder(
                             reverse: true,
@@ -164,16 +183,6 @@ class GameChatView extends StackedView<GameChatViewModel> {
                                         ],
                                       );
                                     }
-                                    if (message.topup != null) {
-                                      return Column(
-                                        key: ValueKey('topup-${message.topup!.id}'),
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          if (dateChip != null) dateChip,
-                                          _DepositRequestBubble(topup: message.topup!),
-                                        ],
-                                      );
-                                    }
                                     if (message.winning != null) {
                                       return Column(
                                         key: ValueKey('win-${message.winning!.id}'),
@@ -210,6 +219,11 @@ class GameChatView extends StackedView<GameChatViewModel> {
   @override
   GameChatViewModel viewModelBuilder(BuildContext context) =>
       GameChatViewModel(game: game);
+
+  @override
+  void onViewModelReady(GameChatViewModel viewModel) {
+    viewModel.initialise();
+  }
 
   Future<void> _showEditSaleDialog(
     BuildContext context,
@@ -894,137 +908,6 @@ class _SaleBubble extends StatelessWidget {
   }
 }
 
-class _DepositRequestBubble extends StatelessWidget {
-  const _DepositRequestBubble({required this.topup});
-
-  final WalletTopupMessage topup;
-
-  Color get _statusColor {
-    if (topup.isCredited) return const Color(0xFF0B8F78);
-    if (topup.isRejected) return const Color(0xFFDC2626);
-    return const Color(0xFFD97706);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final time = topup.createdAt?.toLocal();
-    final timeLabel = time == null
-        ? ''
-        : '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-    final dateLabel = WinTheme.monthDay(topup.createdAt);
-    final stamp = [
-      if (dateLabel.isNotEmpty) dateLabel,
-      if (timeLabel.isNotEmpty) timeLabel,
-    ].join(' · ');
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 250),
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFD9FDD3),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Add money request',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '₹${topup.amount.toStringAsFixed(0)}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                topup.userStatus,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: _statusColor,
-                ),
-              ),
-              if (topup.screenshotUrl.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.of(context, rootNavigator: true).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => Scaffold(
-                          backgroundColor: Colors.black,
-                          appBar: AppBar(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                          ),
-                          body: Center(
-                            child: InteractiveViewer(
-                              child: Image.network(
-                                topup.screenshotUrl,
-                                errorBuilder: (_, _, _) => const Text(
-                                  'Unable to load image',
-                                  style: TextStyle(color: Colors.white70),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      topup.screenshotUrl,
-                      height: 120,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
-                        height: 80,
-                        color: const Color(0xFFE5E7EB),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'Screenshot unavailable',
-                          style: TextStyle(fontSize: 11),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-              if (stamp.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    stamp,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Color(0xFF6B7280),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ThumbsUpReplyBubble extends StatelessWidget {
   const _ThumbsUpReplyBubble();
 
@@ -1152,13 +1035,11 @@ class _ChatMessageItem {
     required this.date,
     this.sale,
     this.result,
-    this.topup,
     this.winning,
   });
 
   final DateTime? date;
   final SalesRecord? sale;
   final ResultChatMessage? result;
-  final WalletTopupMessage? topup;
   final WinningReport? winning;
 }

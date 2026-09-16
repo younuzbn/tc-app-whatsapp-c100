@@ -8,11 +8,13 @@ import '../config/app_config.dart';
 const referShareAssetPath = 'assets/win_app_v3.png';
 
 String referralShareText(String code) {
+  final formatted = code.trim().toUpperCase();
   return '''
 📲 Download and Install:
 ${AppConfig.appDownloadUrl}
 
-🎁 Referral Code: $code
+🎁 Use my referral code to get a bonus:
+`$formatted`
 '''
       .trim();
 }

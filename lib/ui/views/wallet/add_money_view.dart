@@ -48,10 +48,20 @@ class _AddMoneyViewState extends State<AddMoneyView> {
       final session = await _wallet.startCarcarePayment(amount: amount.toDouble());
       if (!mounted) return;
 
+      final checkout = session.checkout;
       final uri = CarCareCheckout.checkoutUri(
         amount: amount,
-        name: SessionService.username,
-        phone: SessionService.displayPhoneNumber ?? SessionService.username,
+        name: checkout?.name ?? SessionService.username,
+        phone: checkout?.phone ??
+            SessionService.displayPhoneNumber ??
+            SessionService.username,
+        email: checkout?.email,
+        line1: checkout?.line1,
+        line2: checkout?.line2,
+        city: checkout?.city,
+        state: checkout?.state,
+        pincode: checkout?.pincode,
+        landmark: checkout?.landmark,
         ref: session.orderId,
       );
 

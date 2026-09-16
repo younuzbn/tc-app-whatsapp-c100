@@ -7,26 +7,65 @@ import 'admin_result_editor_view.dart';
 import 'admin_ticket_data_view.dart';
 import 'admin_time_and_count_settings_view.dart';
 
-class AdminGameChatOptionsView extends StatelessWidget {
-  const AdminGameChatOptionsView({super.key, required this.game});
+class AdminGameChatOptionsView extends StatefulWidget {
+  const AdminGameChatOptionsView({super.key, this.game});
 
-  final GameChatData game;
+  final GameChatData? game;
+
+  @override
+  State<AdminGameChatOptionsView> createState() =>
+      _AdminGameChatOptionsViewState();
+}
+
+class _AdminGameChatOptionsViewState extends State<AdminGameChatOptionsView> {
+  late GameChatData _game;
+
+  @override
+  void initState() {
+    super.initState();
+    _game = widget.game ?? gameChats.first;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(game.name)),
+      appBar: AppBar(title: const Text('Game Settings')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          InputDecorator(
+            decoration: const InputDecoration(
+              labelText: 'Select game',
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: _game.timeSlot,
+                items: [
+                  for (final game in gameChats)
+                    DropdownMenuItem<String>(
+                      value: game.timeSlot,
+                      child: Text(game.name),
+                    ),
+                ],
+                onChanged: (slot) {
+                  if (slot == null) return;
+                  setState(() => _game = gameForTimeSlot(slot));
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           _OptionTile(
             title: 'Game Settings',
-            subtitle: 'Enable/disable and stop booking for ${game.name}',
+            subtitle: 'Enable/disable and stop booking for ${_game.name}',
             icon: Icons.settings,
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => AdminGameSettingsView(game: game),
+                  builder: (_) => AdminGameSettingsView(game: _game),
                 ),
               );
             },
@@ -40,8 +79,8 @@ class AdminGameChatOptionsView extends StatelessWidget {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => AdminTimeAndCountSettingsView(
-                    timeSlotFilter: game.timeSlot,
-                    gameTitle: game.name,
+                    timeSlotFilter: _game.timeSlot,
+                    gameTitle: _game.name,
                   ),
                 ),
               );
@@ -54,7 +93,7 @@ class AdminGameChatOptionsView extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => AdminTicketDataView(game: game),
+                  builder: (_) => AdminTicketDataView(game: _game),
                 ),
               );
             },
@@ -66,7 +105,7 @@ class AdminGameChatOptionsView extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => AdminPositionDataView(game: game),
+                  builder: (_) => AdminPositionDataView(game: _game),
                 ),
               );
             },
@@ -79,7 +118,7 @@ class AdminGameChatOptionsView extends StatelessWidget {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => AdminResultEditorView(
-                    game: game,
+                    game: _game,
                     editMode: false,
                   ),
                 ),
@@ -94,7 +133,7 @@ class AdminGameChatOptionsView extends StatelessWidget {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => AdminResultEditorView(
-                    game: game,
+                    game: _game,
                     editMode: true,
                   ),
                 ),

@@ -68,6 +68,21 @@ class PhoneLoginViewModel extends BaseViewModel {
 
   bool get showConfirmPassword => step == PhoneLoginStep.passwordRegister;
 
+  static final RegExp _passwordChars = RegExp(
+    r"""^[A-Za-z0-9!@#\$%^&*()_+\-=\[\]{};':"\\|,.<>/?`~]+$""",
+  );
+
+  static String? validateNewPassword(String raw) {
+    final password = raw.trim();
+    if (password.length < 4) {
+      return 'Password must be at least 4 characters';
+    }
+    if (!_passwordChars.hasMatch(password)) {
+      return 'Use letters, numbers, or special characters only';
+    }
+    return null;
+  }
+
   void toggleObscurePassword() {
     obscurePassword = !obscurePassword;
     notifyListeners();
@@ -173,8 +188,8 @@ class PhoneLoginViewModel extends BaseViewModel {
   }
 
   Future<PhoneLoginActionResult> _register(String phoneNumber) async {
-    final password = passwordController.text;
-    final confirm = confirmPasswordController.text;
+    final password = passwordController.text.trim();
+    final confirm = confirmPasswordController.text.trim();
     final referral = sanitizedReferralCode;
 
     if (referral.isEmpty) {
@@ -182,8 +197,9 @@ class PhoneLoginViewModel extends BaseViewModel {
       notifyListeners();
       return const PhoneLoginActionResult(kind: PhoneLoginResultKind.stay);
     }
-    if (password.length < 3) {
-      errorMessage = 'Password must be at least 3 characters';
+    final passwordError = validateNewPassword(password);
+    if (passwordError != null) {
+      errorMessage = passwordError;
       notifyListeners();
       return const PhoneLoginActionResult(kind: PhoneLoginResultKind.stay);
     }

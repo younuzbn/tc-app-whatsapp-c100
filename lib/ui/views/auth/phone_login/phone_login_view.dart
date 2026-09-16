@@ -83,7 +83,7 @@ class PhoneLoginView extends StackedView<PhoneLoginViewModel> {
               Text(
                 viewModel.showPasswordFields
                     ? (viewModel.step == PhoneLoginStep.passwordRegister
-                          ? 'Create a password to finish signing up.'
+                          ? 'Create a password of at least 4 characters. Letters, numbers, or special characters are allowed.'
                           : 'Enter your password to continue.')
                     : 'Win App will need your phone number to sign you in.',
                 textAlign: TextAlign.center,

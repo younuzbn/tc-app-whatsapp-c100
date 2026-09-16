@@ -3,12 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../services/sales_service.dart';
 import '../../../services/session_service.dart';
 import '../auth/phone_login/phone_login_view.dart';
-import '../home/game_chat_data.dart';
+import 'admin_account_summary_view.dart';
 import 'admin_customer_chat_view.dart';
 import 'admin_game_chat_options_view.dart';
 import 'admin_referral_codes_view.dart';
 import 'admin_referral_tree_view.dart';
-import 'admin_upi_settings_view.dart';
 import 'admin_users_view.dart';
 import 'admin_withdraw_requests_view.dart';
 
@@ -50,19 +49,6 @@ class _AdminHomeViewState extends State<AdminHomeView> {
   Widget build(BuildContext context) {
     final items = <_AdminChatItem>[
       _AdminChatItem(
-        title: 'UPI payment',
-        subtitle: 'UPI ID and QR shown when users add money',
-        color: const Color(0xFF25D366),
-        leadingIcon: Icons.account_balance,
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const AdminUpiSettingsView(),
-            ),
-          );
-        },
-      ),
-      _AdminChatItem(
         title: 'Referral codes',
         subtitle: 'Create and manage invite codes',
         color: const Color(0xFF4B9B8B),
@@ -77,7 +63,7 @@ class _AdminHomeViewState extends State<AdminHomeView> {
       ),
       _AdminChatItem(
         title: 'Withdraw requests',
-        subtitle: 'Accept, reject, or complete payouts',
+        subtitle: 'Mark as withdraw or reject',
         color: const Color(0xFFEAB308),
         leadingIcon: Icons.account_balance_wallet_outlined,
         onTap: () {
@@ -114,19 +100,32 @@ class _AdminHomeViewState extends State<AdminHomeView> {
           );
         },
       ),
-      for (final game in gameChats)
-        _AdminChatItem(
-          title: game.name,
-          subtitle: 'Open game settings for this game',
-          color: game.avatarColor,
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => AdminGameChatOptionsView(game: game),
-              ),
-            );
-          },
-        ),
+      _AdminChatItem(
+        title: 'Game Settings',
+        subtitle: 'Dear 1, Kerala 3, Dear 6, Dear 8',
+        color: const Color(0xFFF89A2C),
+        leadingIcon: Icons.sports_esports_outlined,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AdminGameChatOptionsView(),
+            ),
+          );
+        },
+      ),
+      _AdminChatItem(
+        title: 'Account Summary',
+        subtitle: 'Total sales, winnings, and balance',
+        color: const Color(0xFF437D35),
+        leadingIcon: Icons.summarize_outlined,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AdminAccountSummaryView(),
+            ),
+          );
+        },
+      ),
       for (final chat in _customerChats)
         _AdminChatItem(
           title: chat.customerId,

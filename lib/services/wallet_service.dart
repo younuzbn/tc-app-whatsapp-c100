@@ -349,7 +349,7 @@ class WalletService {
             headers: _headers(token),
             body: jsonEncode({'amount': amount}),
           )
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 40));
       final body = _decodeBody(response.body);
       if (response.statusCode >= 400 || body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to start payment');
@@ -638,15 +638,59 @@ class CarcarePaymentSession {
   const CarcarePaymentSession({
     required this.orderId,
     required this.amount,
+    this.checkout,
   });
 
   final String orderId;
   final double amount;
+  final CheckoutAddress? checkout;
 
   factory CarcarePaymentSession.fromJson(Map<String, dynamic> json) {
+    final checkoutRaw = json['checkout'];
     return CarcarePaymentSession(
       orderId: json['order_id']?.toString() ?? '',
       amount: double.tryParse(json['amount']?.toString() ?? '') ?? 0,
+      checkout: checkoutRaw is Map<String, dynamic>
+          ? CheckoutAddress.fromJson(checkoutRaw)
+          : null,
+    );
+  }
+}
+
+class CheckoutAddress {
+  const CheckoutAddress({
+    required this.name,
+    required this.email,
+    required this.phone,
+    required this.line1,
+    required this.line2,
+    required this.city,
+    required this.state,
+    required this.pincode,
+    this.landmark = '',
+  });
+
+  final String name;
+  final String email;
+  final String phone;
+  final String line1;
+  final String line2;
+  final String city;
+  final String state;
+  final String pincode;
+  final String landmark;
+
+  factory CheckoutAddress.fromJson(Map<String, dynamic> json) {
+    return CheckoutAddress(
+      name: json['name']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      phone: json['phone']?.toString() ?? '',
+      line1: json['line1']?.toString() ?? '',
+      line2: json['line2']?.toString() ?? '',
+      city: json['city']?.toString() ?? '',
+      state: json['state']?.toString() ?? '',
+      pincode: json['pincode']?.toString() ?? '',
+      landmark: json['landmark']?.toString() ?? '',
     );
   }
 }
