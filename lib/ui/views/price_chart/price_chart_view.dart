@@ -41,34 +41,34 @@ class _PriceChartBody extends StatelessWidget {
         _Header(),
         _SuperTicketSection(),
         Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, 20),
+          padding: EdgeInsets.fromLTRB(16, 6, 16, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _AbcTicketsCard(),
-              SizedBox(height: 16),
+              SizedBox(height: 10),
               _BoxPair(
                 leftAmount: '₹3,300',
                 rightAmount: '₹800',
               ),
-              SizedBox(height: 18),
+              SizedBox(height: 12),
               _SectionTitle(
                 title: '2 അക്കങ്ങൾ ആവർത്തിച്ചാൽ',
                 subtitle: '(ഉദാ: 556, 667)',
               ),
-              SizedBox(height: 10),
+              SizedBox(height: 8),
               _BoxPair(
                 leftAmount: '₹3,800',
                 rightAmount: '₹800',
               ),
-              SizedBox(height: 18),
+              SizedBox(height: 12),
               _SectionTitle(
                 title: '3 അക്കങ്ങളും ഒന്നായാൽ',
                 subtitle: '(ഉദാ: 666, 444, 777)',
               ),
-              SizedBox(height: 10),
+              SizedBox(height: 8),
               _TripleBanner(),
-              SizedBox(height: 16),
+              SizedBox(height: 10),
               _MultiPrizeNote(),
             ],
           ),
@@ -85,33 +85,33 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       color: WinTheme.bg,
       child: const Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('🏆', style: TextStyle(fontSize: 22)),
-              SizedBox(width: 8),
+              Text('🏆', style: TextStyle(fontSize: 18)),
+              SizedBox(width: 6),
               Text(
                 'സമ്മാന ചാർട്ട്',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 26,
+                  fontSize: 20,
                   fontWeight: FontWeight.w800,
                   height: 1.2,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 8),
+          SizedBox(height: 4),
           Text(
             'നിങ്ങളുടെ വിജയ വിവരങ്ങൾ ഇവിടെ കാണാം',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: WinTheme.muted,
-              fontSize: 13,
+              fontSize: 11,
               height: 1.35,
             ),
           ),
@@ -136,7 +136,7 @@ class _SuperTicketSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
       child: Column(
         children: [
           const Text(
@@ -144,13 +144,13 @@ class _SuperTicketSection extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white,
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             decoration: BoxDecoration(
               color: WinTheme.green,
               borderRadius: BorderRadius.circular(20),
@@ -160,11 +160,11 @@ class _SuperTicketSection extends StatelessWidget {
               style: TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.w800,
-                fontSize: 13,
+                fontSize: 11,
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           for (var i = 0; i < _prizes.length; i++) ...[
             _PrizeRow(
               title: _prizes[i].$1,
@@ -172,7 +172,7 @@ class _SuperTicketSection extends StatelessWidget {
               note: _prizes[i].$3,
               featured: i == 0,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
           ],
         ],
       ),
@@ -196,10 +196,10 @@ class _PrizeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: featured ? WinTheme.greenSoft : WinTheme.card,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: featured ? WinTheme.green : WinTheme.border,
         ),
@@ -207,8 +207,8 @@ class _PrizeRow extends StatelessWidget {
       child: Row(
         children: [
           if (featured) ...[
-            const Icon(Icons.star_rounded, color: WinTheme.gold, size: 20),
-            const SizedBox(width: 8),
+            const Icon(Icons.star_rounded, color: WinTheme.gold, size: 16),
+            const SizedBox(width: 6),
           ],
           Expanded(
             child: Column(
@@ -219,7 +219,7 @@ class _PrizeRow extends StatelessWidget {
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
-                    fontSize: 15,
+                    fontSize: 13,
                   ),
                 ),
                 if (note != null)
@@ -227,7 +227,7 @@ class _PrizeRow extends StatelessWidget {
                     note!,
                     style: const TextStyle(
                       color: WinTheme.muted,
-                      fontSize: 12,
+                      fontSize: 10,
                     ),
                   ),
               ],
@@ -238,7 +238,7 @@ class _PrizeRow extends StatelessWidget {
             style: TextStyle(
               color: featured ? WinTheme.gold : WinTheme.green,
               fontWeight: FontWeight.w800,
-              fontSize: 20,
+              fontSize: 17,
             ),
           ),
         ],
@@ -255,7 +255,7 @@ class _AbcTicketsCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: WinTheme.card,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: WinTheme.border),
       ),
       clipBehavior: Clip.antiAlias,
@@ -263,11 +263,11 @@ class _AbcTicketsCard extends StatelessWidget {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: const BoxDecoration(
               color: WinTheme.greenSoft,
               border: Border(
-                top: BorderSide(color: WinTheme.green, width: 4),
+                top: BorderSide(color: WinTheme.green, width: 3),
               ),
             ),
             child: const Column(
@@ -277,7 +277,7 @@ class _AbcTicketsCard extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -285,7 +285,7 @@ class _AbcTicketsCard extends StatelessWidget {
                   'ടിക്കറ്റുകൾ',
                   style: TextStyle(
                     color: WinTheme.green,
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -293,7 +293,7 @@ class _AbcTicketsCard extends StatelessWidget {
             ),
           ),
           const Padding(
-            padding: EdgeInsets.fromLTRB(12, 12, 12, 14),
+            padding: EdgeInsets.all(10),
             child: Column(
               children: [
                 _AbcTicketRow(
@@ -301,7 +301,7 @@ class _AbcTicketsCard extends StatelessWidget {
                   price: 'ടിക്കറ്റ് വില: ₹12',
                   prize: '₹100',
                 ),
-                SizedBox(height: 10),
+                SizedBox(height: 8),
                 _AbcTicketRow(
                   title: 'ഡബിൾ ടിക്കറ്റ് (AB, BC, AC)',
                   price: 'ടിക്കറ്റ് വില: ₹10',
@@ -330,10 +330,10 @@ class _AbcTicketRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         color: WinTheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
@@ -346,13 +346,13 @@ class _AbcTicketRow extends StatelessWidget {
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
-                    fontSize: 14,
+                    fontSize: 13,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text(
                   price,
-                  style: const TextStyle(color: WinTheme.muted, fontSize: 12),
+                  style: const TextStyle(color: WinTheme.muted, fontSize: 11),
                 ),
               ],
             ),
@@ -362,7 +362,7 @@ class _AbcTicketRow extends StatelessWidget {
             children: [
               const Text(
                 'സമ്മാനം',
-                style: TextStyle(color: WinTheme.muted, fontSize: 11),
+                style: TextStyle(color: WinTheme.muted, fontSize: 10),
               ),
               const SizedBox(height: 2),
               Text(
@@ -370,7 +370,7 @@ class _AbcTicketRow extends StatelessWidget {
                 style: const TextStyle(
                   color: WinTheme.green,
                   fontWeight: FontWeight.w800,
-                  fontSize: 22,
+                  fontSize: 18,
                 ),
               ),
             ],
@@ -396,7 +396,7 @@ class _SectionTitle extends StatelessWidget {
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -404,7 +404,7 @@ class _SectionTitle extends StatelessWidget {
         Text(
           subtitle,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: WinTheme.muted, fontSize: 13),
+          style: const TextStyle(color: WinTheme.muted, fontSize: 11),
         ),
       ],
     );
@@ -442,10 +442,10 @@ class _BoxCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       decoration: BoxDecoration(
         color: WinTheme.card,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: WinTheme.border),
       ),
       child: Column(
@@ -453,15 +453,20 @@ class _BoxCard extends StatelessWidget {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: WinTheme.muted, fontSize: 13),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: WinTheme.muted, fontSize: 11),
           ),
-          const SizedBox(height: 8),
-          Text(
-            amount,
-            style: const TextStyle(
-              color: WinTheme.green,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              amount,
+              style: const TextStyle(
+                color: WinTheme.green,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
@@ -476,10 +481,10 @@ class _TripleBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: WinTheme.greenSoft,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: WinTheme.green),
       ),
       child: const Row(
@@ -490,7 +495,7 @@ class _TripleBanner extends StatelessWidget {
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
-                fontSize: 16,
+                fontSize: 14,
               ),
             ),
           ),
@@ -502,7 +507,7 @@ class _TripleBanner extends StatelessWidget {
                   style: TextStyle(
                     color: WinTheme.gold,
                     fontWeight: FontWeight.w800,
-                    fontSize: 24,
+                    fontSize: 20,
                   ),
                 ),
                 TextSpan(
@@ -510,7 +515,7 @@ class _TripleBanner extends StatelessWidget {
                   style: TextStyle(
                     color: WinTheme.gold,
                     fontWeight: FontWeight.w700,
-                    fontSize: 16,
+                    fontSize: 14,
                   ),
                 ),
               ],
@@ -528,28 +533,28 @@ class _MultiPrizeNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: WinTheme.card,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: WinTheme.border),
       ),
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            radius: 12,
+            radius: 10,
             backgroundColor: WinTheme.green,
             child: Text(
               '!',
               style: TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.w800,
-                fontSize: 14,
+                fontSize: 12,
               ),
             ),
           ),
-          SizedBox(width: 10),
+          SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -559,25 +564,25 @@ class _MultiPrizeNote extends StatelessWidget {
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
-                    fontSize: 14,
+                    fontSize: 12,
                   ),
                 ),
-                SizedBox(height: 6),
+                SizedBox(height: 4),
                 Text(
                   'ഒരേ നമ്പർ തന്നെ പല സമ്മാനങ്ങൾക്ക് അർഹമായാൽ, എല്ലാ സമ്മാനത്തുകയും ഒരുമിച്ച് ലഭിക്കുന്നതാണ്.',
                   style: TextStyle(
                     color: WinTheme.muted,
-                    height: 1.4,
-                    fontSize: 13,
+                    height: 1.3,
+                    fontSize: 11,
                   ),
                 ),
-                SizedBox(height: 6),
+                SizedBox(height: 4),
                 Text(
                   '(ഉദാഹരണത്തിന്: 123 എന്ന നമ്പറിന് ഒന്നാമത്തെയും രണ്ടാമത്തെയും സമ്മാനം ലഭിച്ചാൽ ₹5000 + ₹500 = ₹5500 ലഭിക്കും).',
                   style: TextStyle(
                     color: WinTheme.muted,
-                    height: 1.4,
-                    fontSize: 13,
+                    height: 1.3,
+                    fontSize: 11,
                   ),
                 ),
               ],

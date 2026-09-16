@@ -334,6 +334,37 @@ class WalletService {
     }
   }
 
+  Future<CarcarePaymentSession> startCarcarePayment({
+    required double amount,
+  }) async {
+    final token = SessionService.authToken;
+    if (token == null || token.isEmpty) {
+      throw Exception('Login required');
+    }
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/payments/carcare/start');
+    try {
+      final response = await http
+          .post(
+            uri,
+            headers: _headers(token),
+            body: jsonEncode({'amount': amount}),
+          )
+          .timeout(const Duration(seconds: 20));
+      final body = _decodeBody(response.body);
+      if (response.statusCode >= 400 || body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to start payment');
+      }
+      final data = body['data'] as Map<String, dynamic>? ?? {};
+      return CarcarePaymentSession.fromJson(data);
+    } on SocketException {
+      throw Exception(_serverUnavailableMessage());
+    } on HttpException {
+      throw Exception(_serverUnavailableMessage());
+    } on TimeoutException {
+      throw Exception(_serverUnavailableMessage());
+    }
+  }
+
   Future<PaymentOrderStatus> getPaymentStatus(String orderId) async {
     final token = SessionService.authToken;
     if (token == null || token.isEmpty) {
@@ -598,6 +629,23 @@ class CashfreeOrderSession {
       orderId: json['order_id']?.toString() ?? '',
       paymentSessionId: json['payment_session_id']?.toString() ?? '',
       checkoutUrl: json['checkout_url']?.toString() ?? '',
+      amount: double.tryParse(json['amount']?.toString() ?? '') ?? 0,
+    );
+  }
+}
+
+class CarcarePaymentSession {
+  const CarcarePaymentSession({
+    required this.orderId,
+    required this.amount,
+  });
+
+  final String orderId;
+  final double amount;
+
+  factory CarcarePaymentSession.fromJson(Map<String, dynamic> json) {
+    return CarcarePaymentSession(
+      orderId: json['order_id']?.toString() ?? '',
       amount: double.tryParse(json['amount']?.toString() ?? '') ?? 0,
     );
   }

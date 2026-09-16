@@ -36,6 +36,7 @@ class HomeView extends StackedView<HomeViewModel> {
               walletChipText: viewModel.walletChipText,
               walletLoading: viewModel.walletLoading,
               unreadNotifications: viewModel.unreadNotifications,
+              selectedTab: viewModel.selectedTab,
               onNotificationsTap: () async {
                 await Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
@@ -53,6 +54,13 @@ class HomeView extends StackedView<HomeViewModel> {
                 if (context.mounted) {
                   await viewModel.refreshWallet();
                 }
+              },
+              onPriceChartTap: () {
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const PriceChartView(embedded: false),
+                  ),
+                );
               },
             ),
             Expanded(
@@ -172,19 +180,25 @@ class _TopBar extends StatelessWidget {
     required this.walletChipText,
     required this.walletLoading,
     required this.unreadNotifications,
+    required this.selectedTab,
     required this.onWalletTap,
     required this.onNotificationsTap,
+    required this.onPriceChartTap,
   });
 
   final String displayPhoneNumber;
   final String walletChipText;
   final bool walletLoading;
   final int unreadNotifications;
+  final HomeTab selectedTab;
   final Future<void> Function() onWalletTap;
   final Future<void> Function() onNotificationsTap;
+  final VoidCallback onPriceChartTap;
 
   @override
   Widget build(BuildContext context) {
+    final isReferTab = selectedTab == HomeTab.refer;
+    
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 10, 16),
       child: Row(
@@ -199,51 +213,86 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Material(
-            color: HomeView._chipInactive,
-            borderRadius: BorderRadius.circular(20),
-            child: InkWell(
+          if (isReferTab) ...[
+            // Prize Chart button on Refer & Earn tab
+            Material(
+              color: HomeView._chipInactive,
               borderRadius: BorderRadius.circular(20),
-              onTap: () => onWalletTap(),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.account_balance_wallet_outlined,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    if (walletLoading)
-                      const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: HomeView._green,
-                        ),
-                      )
-                    else
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: onPriceChartTap,
+                child: const Padding(
+                  padding: EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.workspace_premium_outlined,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      SizedBox(width: 6),
                       Text(
-                        walletChipText.isEmpty ? '—' : walletChipText,
-                        style: const TextStyle(
+                        'Prize Chart',
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          _NotificationButton(
-            unread: unreadNotifications,
-            onTap: () => onNotificationsTap(),
-          ),
+          ] else ...[
+            // Wallet and notification icons on other tabs
+            Material(
+              color: HomeView._chipInactive,
+              borderRadius: BorderRadius.circular(20),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => onWalletTap(),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.account_balance_wallet_outlined,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      if (walletLoading)
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: HomeView._green,
+                          ),
+                        )
+                      else
+                        Text(
+                          walletChipText.isEmpty ? '—' : walletChipText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _NotificationButton(
+              unread: unreadNotifications,
+              onTap: () => onNotificationsTap(),
+            ),
+          ],
         ],
       ),
     );

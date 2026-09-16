@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:stacked/stacked.dart';
 
 import '../../admin/admin_home_view.dart';
@@ -36,39 +37,18 @@ class OtpVerificationView extends StackedView<OtpVerificationViewModel> {
           children: [
             const SizedBox(height: 28),
             Text(
-              'Enter the 4-digit OTP sent to +$countryCode $phoneNumber',
+              'Enter the 6-digit OTP for +$countryCode $phoneNumber',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium?.copyWith(
                 color: const Color(0xFF475467),
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Use 0000 for any mobile number.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: const Color(0xFF10B981),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
             const SizedBox(height: 40),
-            TextField(
-              controller: viewModel.otpController,
-              keyboardType: TextInputType.number,
-              maxLength: 4,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                letterSpacing: 12,
-                fontWeight: FontWeight.w700,
-              ),
-              decoration: const InputDecoration(
-                counterText: '',
-                hintText: '0000',
-                border: OutlineInputBorder(),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFF14B8A6), width: 2),
-                ),
-              ),
+            _OtpBoxes(
+              controllers: viewModel.digitControllers,
+              focusNodes: viewModel.digitFocus,
+              enabled: !viewModel.isBusy,
+              onChanged: viewModel.onDigitChanged,
             ),
             const SizedBox(height: 16),
             if (viewModel.errorMessage != null)
@@ -138,6 +118,59 @@ class OtpVerificationView extends StackedView<OtpVerificationViewModel> {
     return OtpVerificationViewModel(
       countryCode: countryCode,
       phoneNumber: phoneNumber,
+    );
+  }
+}
+
+class _OtpBoxes extends StatelessWidget {
+  const _OtpBoxes({
+    required this.controllers,
+    required this.focusNodes,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  final List<TextEditingController> controllers;
+  final List<FocusNode> focusNodes;
+  final void Function(int index, String value) onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: List.generate(controllers.length, (index) {
+        return SizedBox(
+          width: 46,
+          height: 56,
+          child: TextField(
+            controller: controllers[index],
+            focusNode: focusNodes[index],
+            enabled: enabled,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            maxLength: 1,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF101828),
+            ),
+            decoration: InputDecoration(
+              counterText: '',
+              contentPadding: EdgeInsets.zero,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFF14B8A6), width: 2),
+              ),
+            ),
+            onChanged: (value) => onChanged(index, value),
+          ),
+        );
+      }),
     );
   }
 }

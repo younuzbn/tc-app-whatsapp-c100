@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../services/carcare_checkout.dart';
+import '../../../services/session_service.dart';
+import '../../../services/wallet_service.dart';
 import '../../theme/win_theme.dart';
+import 'payment_processing_view.dart';
 
 class AddMoneyView extends StatefulWidget {
   const AddMoneyView({super.key});
@@ -13,8 +18,10 @@ class AddMoneyView extends StatefulWidget {
 class _AddMoneyViewState extends State<AddMoneyView> {
   final _amountController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _wallet = const WalletService();
   final List<int> _quickAmounts = [100, 500, 1000, 2000, 5000, 10000];
   int? _selectedQuickAmount;
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -29,12 +36,64 @@ class _AddMoneyViewState extends State<AddMoneyView> {
     });
   }
 
-  void _proceed() {
-    if (_formKey.currentState?.validate() ?? false) {
-      final amount = double.tryParse(_amountController.text);
-      if (amount != null && amount > 0) {
-        Navigator.of(context).pop(amount);
+  Future<void> _proceed() async {
+    if (_busy) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final amount = int.tryParse(_amountController.text);
+    if (amount == null || amount <= 0) return;
+
+    FocusScope.of(context).unfocus();
+    setState(() => _busy = true);
+    try {
+      final session = await _wallet.startCarcarePayment(amount: amount.toDouble());
+      if (!mounted) return;
+
+      final uri = CarCareCheckout.checkoutUri(
+        amount: amount,
+        name: SessionService.username,
+        phone: SessionService.displayPhoneNumber ?? SessionService.username,
+        ref: session.orderId,
+      );
+
+      final processing = Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => PaymentProcessingView(
+            orderId: session.orderId,
+            amount: amount.toDouble(),
+            watchStatus: true,
+            onCancel: () {},
+          ),
+        ),
+      );
+
+      await WidgetsBinding.instance.endOfFrame;
+
+      try {
+        final launched = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+        if (!launched && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open checkout.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          );
+        }
       }
+
+      final credited = await processing;
+      if (credited == true && mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -114,7 +173,7 @@ class _AddMoneyViewState extends State<AddMoneyView> {
                                   ),
                                   SizedBox(height: 4),
                                   Text(
-                                    'Powered by Cashfree Payments',
+                                    'Pay online with Razorpay',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: Color(0xFF666666),
@@ -213,8 +272,8 @@ class _AddMoneyViewState extends State<AddMoneyView> {
                           if (amount == null || amount <= 0) {
                             return 'Please enter a valid amount';
                           }
-                          if (amount < 100) {
-                            return 'Minimum amount is ₹100';
+                          if (amount < 1) {
+                            return 'Minimum amount is ₹1';
                           }
                           if (amount > 50000) {
                             return 'Maximum amount is ₹50,000';
@@ -337,22 +396,32 @@ class _AddMoneyViewState extends State<AddMoneyView> {
                   width: double.infinity,
                   height: 54,
                   child: ElevatedButton(
-                    onPressed: _proceed,
+                    onPressed: _busy ? null : _proceed,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: WinTheme.green,
                       foregroundColor: Colors.white,
+                      disabledBackgroundColor: WinTheme.green.withOpacity(0.5),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      'Proceed to Pay',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: _busy
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.4,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text(
+                            'Proceed to Pay',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
                 ),
               ),
