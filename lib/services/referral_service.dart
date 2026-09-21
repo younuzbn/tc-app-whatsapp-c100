@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
+import 'api_http.dart';
 import 'session_service.dart';
 
 class AdminReferralCodeItem {
@@ -163,12 +164,14 @@ class ReferralService {
             .get(uri, headers: _headers(token))
             .timeout(const Duration(seconds: 10));
       }
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
 
     final body = _decodeBody(response.body);
@@ -189,7 +192,4 @@ class ReferralService {
     return decoded is Map<String, dynamic> ? decoded : {};
   }
 
-  String _serverUnavailableMessage() {
-    return 'Server on ${AppConfig.apiBaseUrl} is not reachable right now.';
-  }
 }

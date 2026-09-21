@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
+import 'api_http.dart';
 import 'session_service.dart';
 
 class AppNotification {
@@ -71,12 +72,14 @@ class NotificationService {
       final unread = int.tryParse(data['unread']?.toString() ?? '') ??
           items.where((n) => !n.read).length;
       return (items: items, unread: unread);
-    } on SocketException {
-      throw Exception(_serverUnavailable());
-    } on HttpException {
-      throw Exception(_serverUnavailable());
-    } on TimeoutException {
-      throw Exception(_serverUnavailable());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -132,6 +135,4 @@ class NotificationService {
     return decoded is Map<String, dynamic> ? decoded : {};
   }
 
-  String _serverUnavailable() =>
-      'Server on ${AppConfig.apiBaseUrl} is not reachable right now.';
 }

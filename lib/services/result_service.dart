@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
+import 'api_http.dart';
 import 'session_service.dart';
 
 class GameResultData {
@@ -251,12 +252,14 @@ class ResultService {
             .get(uri, headers: _headers(token))
             .timeout(const Duration(seconds: 10));
       }
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
 
     final decoded = _decode(response.body);
@@ -283,6 +286,4 @@ class ResultService {
         '${date.day.toString().padLeft(2, '0')}';
   }
 
-  String _serverUnavailableMessage() =>
-      'Server on ${AppConfig.apiBaseUrl} is not reachable right now.';
 }

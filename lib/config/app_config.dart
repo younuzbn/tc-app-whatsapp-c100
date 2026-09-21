@@ -3,7 +3,7 @@ class AppConfig {
 
   static const String appDownloadUrl = 'https://download.winapp24.com/';
 
-  static const String appVersion = '1.1.2';
+  static const String appVersion = '1.1.4';
 
   static const String paymentScheme = 'winapp';
 

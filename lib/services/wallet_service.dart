@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
+import 'api_http.dart';
 import 'session_service.dart';
 
 class WalletSummary {
@@ -81,6 +82,39 @@ class WalletSummary {
       payoutDetails: PayoutDetails.fromJson(
         json['payoutDetails'] as Map<String, dynamic>?,
       ),
+    );
+  }
+
+  WalletSummary copyWith({
+    double? total,
+    double? deposit,
+    double? available,
+    double? activityBalance,
+    double? referralBalance,
+    double? winningsBalance,
+    double? lockedBalance,
+    double? withdrawable,
+    double? withdrawableWinnings,
+    double? withdrawableReferral,
+    double? nonWithdrawableReferral,
+    bool? isAdminWallet,
+    PayoutDetails? payoutDetails,
+  }) {
+    return WalletSummary(
+      total: total ?? this.total,
+      deposit: deposit ?? this.deposit,
+      available: available ?? this.available,
+      activityBalance: activityBalance ?? this.activityBalance,
+      referralBalance: referralBalance ?? this.referralBalance,
+      winningsBalance: winningsBalance ?? this.winningsBalance,
+      lockedBalance: lockedBalance ?? this.lockedBalance,
+      withdrawable: withdrawable ?? this.withdrawable,
+      withdrawableWinnings: withdrawableWinnings ?? this.withdrawableWinnings,
+      withdrawableReferral: withdrawableReferral ?? this.withdrawableReferral,
+      nonWithdrawableReferral:
+          nonWithdrawableReferral ?? this.nonWithdrawableReferral,
+      isAdminWallet: isAdminWallet ?? this.isAdminWallet,
+      payoutDetails: payoutDetails ?? this.payoutDetails,
     );
   }
 }
@@ -233,6 +267,7 @@ class WalletTransactionItem {
   }
 
   String get title {
+    if (type == 'welcome_bonus') return 'Welcome bonus';
     final base = switch (type) {
       'topup' => 'Money added',
       'withdraw' => 'Withdrawal',
@@ -290,12 +325,14 @@ class WalletService {
       }
       final data = body['data'] as Map<String, dynamic>? ?? {};
       return WalletSummary.fromJson(data);
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -325,12 +362,14 @@ class WalletService {
       }
       final data = body['data'] as Map<String, dynamic>? ?? {};
       return CashfreeOrderSession.fromJson(data);
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -356,12 +395,31 @@ class WalletService {
       }
       final data = body['data'] as Map<String, dynamic>? ?? {};
       return CarcarePaymentSession.fromJson(data);
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
+    }
+  }
+
+  Future<void> cancelCarcarePayment(String orderId) async {
+    final token = SessionService.authToken;
+    if (token == null || token.isEmpty || orderId.isEmpty) return;
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/payments/carcare/cancel');
+    try {
+      await http
+          .post(
+            uri,
+            headers: _headers(token),
+            body: jsonEncode({'orderId': orderId}),
+          )
+          .timeout(const Duration(seconds: 12));
+    } catch (_) {
+      // History still hides pending/cancelled; don't block the UI.
     }
   }
 
@@ -382,12 +440,14 @@ class WalletService {
       }
       final data = body['data'] as Map<String, dynamic>? ?? {};
       return PaymentOrderStatus.fromJson(data);
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -423,12 +483,14 @@ class WalletService {
       }
       final data = body['data'] as Map<String, dynamic>? ?? {};
       return WalletSummary.fromJson(data);
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -457,12 +519,14 @@ class WalletService {
           data['payoutDetails'] as Map<String, dynamic>?,
         ),
       );
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -485,12 +549,14 @@ class WalletService {
           .whereType<Map<String, dynamic>>()
           .map(WithdrawRequestItem.fromJson)
           .toList();
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -529,12 +595,14 @@ class WalletService {
       }
       final data = body['data'] as Map<String, dynamic>? ?? {};
       return WithdrawRequestItem.fromJson(data);
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -556,12 +624,14 @@ class WalletService {
       if (response.statusCode >= 400 || body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to update add money request');
       }
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -586,12 +656,14 @@ class WalletService {
           .whereType<Map<String, dynamic>>()
           .map(WalletTransactionItem.fromJson)
           .toList();
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -606,9 +678,6 @@ class WalletService {
     return decoded is Map<String, dynamic> ? decoded : {};
   }
 
-  String _serverUnavailableMessage() {
-    return 'Server on ${AppConfig.apiBaseUrl} is not reachable right now.';
-  }
 }
 
 class CashfreeOrderSession {

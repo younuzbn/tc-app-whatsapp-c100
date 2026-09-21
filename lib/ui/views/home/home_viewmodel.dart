@@ -7,7 +7,7 @@ import '../../../services/game_schedule.dart';
 import '../../../services/notification_service.dart';
 import '../../../services/result_service.dart';
 import '../../../services/session_service.dart';
-import '../../../services/wallet_service.dart';
+import '../../../services/wallet_balance_store.dart';
 import 'game_chat_data.dart';
 
 enum HomeCategory { draws, results, winning, myEntries }
@@ -16,6 +16,7 @@ enum HomeTab { digits, refer, wallet, profile }
 
 class HomeViewModel extends BaseViewModel {
   HomeViewModel({required this.displayPhoneNumber}) {
+    WalletBalanceStore.instance.addListener(_onWalletStore);
     Future.microtask(refreshHome);
     _clock = Timer.periodic(const Duration(seconds: 1), (_) {
       _tick += 1;
@@ -27,13 +28,11 @@ class HomeViewModel extends BaseViewModel {
   }
 
   final String displayPhoneNumber;
-  final _walletService = const WalletService();
   final _notificationService = const NotificationService();
   final _adminService = const AdminService();
   final _resultService = const ResultService();
 
   bool _walletLoading = true;
-  String _walletChipText = '';
   int _unreadNotifications = 0;
   HomeCategory _selectedCategory = HomeCategory.draws;
   HomeTab _selectedTab = HomeTab.digits;
@@ -45,7 +44,12 @@ class HomeViewModel extends BaseViewModel {
   List<AppNotification> _unreadDrawAlerts = const [];
 
   /// Text next to the wallet icon (e.g. `₹500`, `—`, or empty while loading).
-  String get walletChipText => _walletChipText;
+  String get walletChipText {
+    if (SessionService.isAdmin) return '—';
+    final value = WalletBalanceStore.instance.available;
+    if (value == null) return '—';
+    return '₹${_fmtRupee(value)}';
+  }
 
   bool get walletLoading => _walletLoading;
 
@@ -61,6 +65,8 @@ class HomeViewModel extends BaseViewModel {
     notifyListeners();
     if (tab == HomeTab.digits) {
       refreshHome();
+    } else if (tab == HomeTab.wallet) {
+      refreshWallet();
     }
   }
 
@@ -131,27 +137,19 @@ class HomeViewModel extends BaseViewModel {
     await refreshNotifications();
   }
 
+  void _onWalletStore() => notifyListeners();
+
   Future<void> refreshWallet() async {
-    _walletLoading = true;
-    _walletChipText = '';
-    notifyListeners();
-    try {
-      if (SessionService.isAdmin) {
-        _walletChipText = '—';
-      } else {
-        final balance = await _walletService.fetchBalance();
-        if (balance == null) {
-          _walletChipText = '—';
-        } else {
-          _walletChipText = '₹${_fmtRupee(balance)}';
-        }
-      }
-    } catch (_) {
-      _walletChipText = '—';
-    } finally {
+    if (SessionService.isAdmin) {
       _walletLoading = false;
       notifyListeners();
+      return;
     }
+    _walletLoading = WalletBalanceStore.instance.available == null;
+    notifyListeners();
+    await WalletBalanceStore.instance.refresh();
+    _walletLoading = false;
+    notifyListeners();
   }
 
   Future<void> refreshDrawSchedules() async {
@@ -164,6 +162,7 @@ class HomeViewModel extends BaseViewModel {
             (item) => MapEntry(item.timeSlot.toLowerCase(), item),
           ),
         );
+      AdminService.cacheTimeSettings(items);
     } catch (_) {
       // Keep last known times if the request fails.
     }
@@ -179,6 +178,9 @@ class HomeViewModel extends BaseViewModel {
       closeTime: setting.closeTime,
     );
   }
+
+  TimeAndCountSetting? timeSettingFor(String timeSlot) =>
+      _timeSettings[timeSlot.toLowerCase()];
 
   bool isDrawClosed(GameChatData data) =>
       scheduleFor(data.timeSlot)?.isClosed == true;
@@ -248,6 +250,7 @@ class HomeViewModel extends BaseViewModel {
 
   @override
   void dispose() {
+    WalletBalanceStore.instance.removeListener(_onWalletStore);
     _clock?.cancel();
     super.dispose();
   }

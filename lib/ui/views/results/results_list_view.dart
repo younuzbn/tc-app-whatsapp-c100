@@ -141,91 +141,122 @@ class _ResultCard extends StatelessWidget {
     final game = gameForTimeSlot(result.timeSlot);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: WinTheme.card,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: WinTheme.border),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: game.avatarColor,
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        game.avatarText,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
+      child: WinGlass(
+        borderRadius: 16,
+        color: const Color(0x18FFFFFF),
+        borderColor: Color.lerp(
+          game.avatarColor.withValues(alpha: 0.55),
+          const Color(0x55FFFFFF),
+          0.35,
+        )!,
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            game.avatarColor.withValues(alpha: 0.28),
+            const Color(0x14FFFFFF),
+            game.avatarColor.withValues(alpha: 0.18),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color.lerp(game.avatarColor, Colors.white, 0.28)!,
+                              game.avatarColor,
+                              Color.lerp(game.avatarColor, Colors.black, 0.18)!,
+                            ],
+                          ),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          game.avatarText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            WinTheme.drawLabel(result.timeSlot),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              WinTheme.drawLabel(result.timeSlot),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _publishedLabel(),
-                            style: const TextStyle(
-                              color: WinTheme.muted,
-                              fontSize: 12,
+                            const SizedBox(height: 2),
+                            Text(
+                              _publishedLabel(),
+                              style: const TextStyle(
+                                color: WinTheme.muted,
+                                fontSize: 12,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: WinTheme.gold,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        'RESULT OUT',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
+                          ],
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                _PrizeRow(label: '1st Prize', value: _prize('firstprice'), gold: true),
-                const SizedBox(height: 8),
-                _PrizeRow(label: '2nd Prize', value: _prize('secondprice')),
-                const SizedBox(height: 8),
-                _PrizeRow(label: '3rd Prize', value: _prize('thirdprice')),
-                const SizedBox(height: 8),
-                _PrizeRow(label: '4th Prize', value: _prize('fourthprice')),
-                const SizedBox(height: 8),
-                _PrizeRow(label: '5th Prize', value: _prize('fifthplace')),
-              ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: WinTheme.gold,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          'RESULT OUT',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _PrizeRow(
+                    label: '1st Prize',
+                    value: _prize('firstprice'),
+                    gold: true,
+                  ),
+                  const SizedBox(height: 8),
+                  _PrizeRow(label: '2nd Prize', value: _prize('secondprice')),
+                  const SizedBox(height: 8),
+                  _PrizeRow(label: '3rd Prize', value: _prize('thirdprice')),
+                  const SizedBox(height: 8),
+                  _PrizeRow(label: '4th Prize', value: _prize('fourthprice')),
+                  const SizedBox(height: 8),
+                  _PrizeRow(label: '5th Prize', value: _prize('fifthplace')),
+                ],
+              ),
             ),
           ),
         ),

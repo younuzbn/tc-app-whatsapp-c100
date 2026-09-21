@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../../services/admin_inbox_seen_store.dart';
 import '../../../services/sales_service.dart';
 import '../../../services/session_service.dart';
+import '../../../services/wallet_service.dart';
+import '../../theme/win_theme.dart';
 import '../auth/phone_login/phone_login_view.dart';
 import 'admin_account_summary_view.dart';
-import 'admin_customer_chat_view.dart';
+import 'admin_entries_view.dart';
 import 'admin_game_chat_options_view.dart';
 import 'admin_referral_codes_view.dart';
 import 'admin_referral_tree_view.dart';
@@ -20,34 +25,102 @@ class AdminHomeView extends StatefulWidget {
 
 class _AdminHomeViewState extends State<AdminHomeView> {
   final _salesService = const SalesService();
+  final _walletService = const WalletService();
+  final _seen = AdminInboxSeenStore.instance;
+  Timer? _pollTimer;
   bool _loading = true;
   String? _error;
   List<CustomerChatSummary> _customerChats = [];
-  final Set<String> _seenCustomerIds = <String>{};
+  List<WithdrawRequestItem> _withdrawals = [];
 
   @override
   void initState() {
     super.initState();
     _load();
+    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      unawaited(_load(silent: true));
+    });
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      _customerChats = await _salesService.getMobileCustomerChats();
-    } catch (error) {
-      _error = error.toString().replaceFirst('Exception: ', '');
-    } finally {
-      if (mounted) setState(() => _loading = false);
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  String? _badge(int count) {
+    if (count <= 0) return null;
+    if (count > 99) return '99+';
+    return '$count';
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
     }
+    try {
+      final chats = await _salesService.getMobileCustomerChats();
+      List<WithdrawRequestItem> withdrawals = const [];
+      try {
+        withdrawals = await _walletService.fetchAdminWithdrawRequests(
+          status: 'processing',
+        );
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() {
+        _customerChats = chats;
+        _withdrawals = withdrawals;
+        _loading = false;
+        _error = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        if (!silent) {
+          _error = error.toString().replaceFirst('Exception: ', '');
+        }
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _openEntries() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const AdminEntriesView(),
+      ),
+    );
+    if (!mounted) return;
+    await _load();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openWithdrawals() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const AdminWithdrawRequestsView(),
+      ),
+    );
+    if (!mounted) return;
+    await _load();
+    _seen.markWithdrawalsSeen(_withdrawals);
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     final items = <_AdminChatItem>[
+      _AdminChatItem(
+        title: 'Entries',
+        subtitle: 'Incoming sale chats by game',
+        color: const Color(0xFF008069),
+        leadingIcon: Icons.receipt_long_outlined,
+        trailingText: _badge(_seen.unreadEntries(_customerChats)),
+        onTap: _openEntries,
+      ),
       _AdminChatItem(
         title: 'Referral codes',
         subtitle: 'Create and manage invite codes',
@@ -63,16 +136,11 @@ class _AdminHomeViewState extends State<AdminHomeView> {
       ),
       _AdminChatItem(
         title: 'Withdraw requests',
-        subtitle: 'Mark as withdraw or reject',
+        subtitle: 'Pay with screenshot, or reject',
         color: const Color(0xFFEAB308),
         leadingIcon: Icons.account_balance_wallet_outlined,
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const AdminWithdrawRequestsView(),
-            ),
-          );
-        },
+        trailingText: _badge(_seen.unreadWithdrawals(_withdrawals)),
+        onTap: _openWithdrawals,
       ),
       _AdminChatItem(
         title: 'Users',
@@ -126,31 +194,10 @@ class _AdminHomeViewState extends State<AdminHomeView> {
           );
         },
       ),
-      for (final chat in _customerChats)
-        _AdminChatItem(
-          title: chat.customerId,
-          subtitle: chat.lastMessage,
-          color: const Color(0xFF25D366),
-          trailingText: _seenCustomerIds.contains(chat.customerId)
-              ? null
-              : '${chat.messageCount}',
-          onTap: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => AdminCustomerChatView(
-                  customerId: chat.customerId,
-                ),
-              ),
-            );
-            if (!mounted) return;
-            setState(() {
-              _seenCustomerIds.add(chat.customerId);
-            });
-          },
-        ),
     ];
 
-    return Scaffold(
+    return WinStatusBar(
+      child: Scaffold(
       backgroundColor: const Color(0xFF0B141A),
       body: SafeArea(
         child: Column(
@@ -266,6 +313,7 @@ class _AdminHomeViewState extends State<AdminHomeView> {
               ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -23,6 +23,7 @@ import java.io.FileOutputStream
 class MainActivity : FlutterFragmentActivity() {
     private val imageChannelName = "win_app/image_picker"
     private val upiChannelName = "win_app/upi"
+    private val sessionChannelName = "win_app/session"
     private var pendingResult: MethodChannel.Result? = null
 
     private val pickImageLauncher =
@@ -43,6 +44,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        startSessionWatchIfNeeded()
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, imageChannelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -97,6 +99,124 @@ class MainActivity : FlutterFragmentActivity() {
                     else -> result.notImplemented()
                 }
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, sessionChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "save" -> {
+                        saveSession(call.arguments)
+                        result.success(null)
+                    }
+                    "load" -> result.success(loadSession())
+                    "clear" -> {
+                        clearSession()
+                        result.success(null)
+                    }
+                    "saveLastPhone" -> {
+                        saveLastPhone(call.argument<String>("phone").orEmpty())
+                        result.success(null)
+                    }
+                    "loadLastPhone" -> result.success(loadLastPhone())
+                    "savePendingReferral" -> {
+                        savePendingReferral(call.argument<String>("code").orEmpty())
+                        result.success(null)
+                    }
+                    "loadPendingReferral" -> result.success(loadPendingReferral())
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun saveSession(raw: Any?) {
+        val prefs = getSharedPreferences(SESSION_PREFS_NAME, MODE_PRIVATE).edit()
+        prefs.clear()
+        val data = raw as? Map<*, *>
+        val token = data?.get("authToken")?.toString().orEmpty()
+        if (token.isNotEmpty()) {
+            prefs.putString("authToken", token)
+            prefs.putString("username", data?.get("username")?.toString().orEmpty())
+            prefs.putString("displayPhoneNumber", data?.get("displayPhoneNumber")?.toString().orEmpty())
+            prefs.putString("userId", data?.get("userId")?.toString().orEmpty())
+            prefs.putString("role", data?.get("role")?.toString().orEmpty())
+            prefs.putString("referralCode", data?.get("referralCode")?.toString().orEmpty())
+            prefs.putBoolean(
+                "isAdmin",
+                data?.get("isAdmin") == true || data?.get("isAdmin")?.toString() == "true",
+            )
+            prefs.putBoolean(
+                "phoneVerified",
+                data?.get("phoneVerified") == true ||
+                    data?.get("phoneVerified")?.toString() == "true",
+            )
+            prefs.commit()
+            startSessionWatchIfNeeded()
+        } else {
+            prefs.commit()
+            stopService(Intent(this, SessionWatchService::class.java))
+        }
+    }
+
+    private fun loadSession(): HashMap<String, Any> {
+        val prefs = getSharedPreferences(SESSION_PREFS_NAME, MODE_PRIVATE)
+        val token = prefs.getString("authToken", "").orEmpty()
+        val out = HashMap<String, Any>()
+        if (token.isNotEmpty()) {
+            out["authToken"] = token
+            out["username"] = prefs.getString("username", "").orEmpty()
+            out["displayPhoneNumber"] = prefs.getString("displayPhoneNumber", "").orEmpty()
+            out["userId"] = prefs.getString("userId", "").orEmpty()
+            out["role"] = prefs.getString("role", "").orEmpty()
+            out["referralCode"] = prefs.getString("referralCode", "").orEmpty()
+            out["isAdmin"] = prefs.getBoolean("isAdmin", false)
+            out["phoneVerified"] = prefs.getBoolean("phoneVerified", false)
+            startSessionWatchIfNeeded()
+        }
+        return out
+    }
+
+    private fun clearSession() {
+        getSharedPreferences(SESSION_PREFS_NAME, MODE_PRIVATE).edit().clear().commit()
+        stopService(Intent(this, SessionWatchService::class.java))
+    }
+
+    private fun startSessionWatchIfNeeded() {
+        val token = getSharedPreferences(SESSION_PREFS_NAME, MODE_PRIVATE)
+            .getString("authToken", "")
+            .orEmpty()
+        if (token.isNotEmpty()) {
+            startService(Intent(this, SessionWatchService::class.java))
+        }
+    }
+
+    private fun saveLastPhone(phone: String) {
+        val digits = phone.filter { it.isDigit() }
+        val last10 = if (digits.length >= 10) digits.takeLast(10) else digits
+        if (last10.length != 10) return
+        getSharedPreferences(LAST_LOGIN_PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putString("phone", last10)
+            .commit()
+    }
+
+    private fun loadLastPhone(): String {
+        return getSharedPreferences(LAST_LOGIN_PREFS_NAME, MODE_PRIVATE)
+            .getString("phone", "")
+            .orEmpty()
+    }
+
+    private fun savePendingReferral(code: String) {
+        val value = code.trim().uppercase().filter { it.isLetterOrDigit() }
+        if (value.isEmpty()) return
+        getSharedPreferences(LAST_LOGIN_PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putString("pendingReferral", value)
+            .commit()
+    }
+
+    private fun loadPendingReferral(): String {
+        return getSharedPreferences(LAST_LOGIN_PREFS_NAME, MODE_PRIVATE)
+            .getString("pendingReferral", "")
+            .orEmpty()
     }
 
     private fun listInstalledUpiApps(): List<Map<String, String>> {

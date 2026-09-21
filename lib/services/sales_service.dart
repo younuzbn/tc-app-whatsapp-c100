@@ -5,7 +5,9 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
+import 'api_http.dart';
 import 'session_service.dart';
+import 'wallet_balance_store.dart';
 import 'winning_service.dart';
 
 class SalesRecord {
@@ -154,7 +156,7 @@ class WalletTopupMessage {
     required this.screenshotUrl,
     required this.createdAt,
     this.status = 'credited',
-    this.userStatus = 'Processed',
+    this.userStatus = 'Successful',
   });
 
   final String id;
@@ -186,7 +188,7 @@ class WalletTopupMessage {
         ? 'Processing'
         : status == 'rejected'
         ? 'Failed'
-        : 'Processed';
+        : 'Successful';
     return WalletTopupMessage(
       id: id,
       username: json['username']?.toString() ?? '',
@@ -353,12 +355,14 @@ class SalesService {
         pages: int.tryParse(pagination['pages']?.toString() ?? '') ?? 1,
         total: int.tryParse(pagination['total']?.toString() ?? '') ?? items.length,
       );
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -368,16 +372,30 @@ class SalesService {
         '${date.day.toString().padLeft(2, '0')}';
   }
 
-  Future<List<CustomerChatSummary>> getMobileCustomerChats() async {
+  Future<List<CustomerChatSummary>> getMobileCustomerChats({
+    String? timeSlot,
+  }) async {
     final token = SessionService.authToken;
     if (token == null) {
       throw Exception('Login required');
     }
 
+    final params = <String, String>{};
+    final slot = timeSlot?.trim().toLowerCase() ?? '';
+    if (slot.isNotEmpty && slot != 'all') {
+      params['timeSlot'] = slot;
+    }
+    final query = params.entries
+        .map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}')
+        .join('&');
+
     try {
       final response = await http
           .get(
-            Uri.parse('${AppConfig.apiBaseUrl}/api/sales/mobile-chats'),
+            Uri.parse(
+              '${AppConfig.apiBaseUrl}/api/sales/mobile-chats'
+              '${query.isEmpty ? '' : '?$query'}',
+            ),
             headers: _headers(token),
           )
           .timeout(const Duration(seconds: 8));
@@ -392,12 +410,14 @@ class SalesService {
           .whereType<Map<String, dynamic>>()
           .map(CustomerChatSummary.fromJson)
           .toList();
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -427,12 +447,14 @@ class SalesService {
           .whereType<Map<String, dynamic>>()
           .map(ConversationMessage.fromJson)
           .toList();
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -459,13 +481,16 @@ class SalesService {
       return items
           .whereType<Map<String, dynamic>>()
           .map(WalletTopupMessage.fromJson)
+          .where((item) => item.isCredited || item.isRejected)
           .toList();
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -497,12 +522,14 @@ class SalesService {
           .whereType<Map<String, dynamic>>()
           .map(ResultChatMessage.fromJson)
           .toList();
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -540,20 +567,23 @@ class SalesService {
               ],
             }),
           )
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 20));
 
       final body = _decodeBody(response.body);
       if (response.statusCode >= 400 || body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to add sale');
       }
 
+      WalletBalanceStore.instance.applyFromResponse(body['walletBalance']);
       return body['billNumber']?.toString() ?? '';
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -589,12 +619,15 @@ class SalesService {
       if (response.statusCode >= 400 || body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to update sale');
       }
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+      WalletBalanceStore.instance.applyFromResponse(body['walletBalance']);
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -616,12 +649,15 @@ class SalesService {
       if (response.statusCode >= 400 || body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to delete sale');
       }
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+      WalletBalanceStore.instance.applyFromResponse(body['walletBalance']);
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
   }
 
@@ -645,7 +681,4 @@ class SalesService {
     return {};
   }
 
-  String _serverUnavailableMessage() {
-    return 'Server on ${AppConfig.apiBaseUrl} is not reachable right now.';
-  }
 }

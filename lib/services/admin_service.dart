@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
+import 'api_http.dart';
 import 'session_service.dart';
 
 class TicketEntry {
@@ -463,9 +464,33 @@ class AccountSummaryReport {
 class AdminService {
   const AdminService();
 
+  static final Map<String, TimeAndCountSetting> _timeSettingCache = {};
+  static MobileAppConfig? _appConfigCache;
+
+  static TimeAndCountSetting? cachedTimeSetting(String timeSlot) =>
+      _timeSettingCache[timeSlot.toLowerCase()];
+
+  static MobileAppConfig? get cachedAppConfig => _appConfigCache;
+
+  static void cacheTimeSettings(Iterable<TimeAndCountSetting> items) {
+    for (final item in items) {
+      final key = item.timeSlot.toLowerCase();
+      if (key.isEmpty) continue;
+      _timeSettingCache[key] = item;
+    }
+  }
+
+  static void cacheAppConfig(MobileAppConfig config) {
+    _appConfigCache = config;
+  }
+
   Future<MobileAppConfig> getMobileAppConfig() async {
     final body = await _request('/api/mobile/app-config');
-    return MobileAppConfig.fromJson(body['data'] as Map<String, dynamic>? ?? {});
+    final config = MobileAppConfig.fromJson(
+      body['data'] as Map<String, dynamic>? ?? {},
+    );
+    cacheAppConfig(config);
+    return config;
   }
 
   Future<GameSettingsData> getGameSettings() async {
@@ -566,6 +591,7 @@ class AdminService {
         );
       }
     }
+    cacheTimeSettings(out);
     return out;
   }
 
@@ -586,12 +612,14 @@ class AdminService {
     try {
       response =
           await http.get(uri, headers: _headers(token)).timeout(const Duration(seconds: 8));
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
 
     if (response.statusCode == 404) {
@@ -607,7 +635,9 @@ class AdminService {
     if (raw is! Map) {
       return null;
     }
-    return TimeAndCountSetting.fromJson(Map<String, dynamic>.from(raw));
+    final setting = TimeAndCountSetting.fromJson(Map<String, dynamic>.from(raw));
+    cacheTimeSettings([setting]);
+    return setting;
   }
 
   Future<void> updateTimeAndCountSetting(TimeAndCountSetting setting) async {
@@ -719,12 +749,14 @@ class AdminService {
         default:
           response = await http.get(uri, headers: _headers(token)).timeout(timeout);
       }
-    } on SocketException {
-      throw Exception(_serverUnavailableMessage());
-    } on HttpException {
-      throw Exception(_serverUnavailableMessage());
-    } on TimeoutException {
-      throw Exception(_serverUnavailableMessage());
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
     }
 
     final body = _decodeBody(response.body);
@@ -747,7 +779,4 @@ class AdminService {
     return decoded is Map<String, dynamic> ? decoded : {};
   }
 
-  String _serverUnavailableMessage() {
-    return 'Server on ${AppConfig.apiBaseUrl} is not reachable right now.';
-  }
 }

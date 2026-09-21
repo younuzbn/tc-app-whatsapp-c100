@@ -1,7 +1,13 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../services/android_image_picker.dart';
 import '../../../services/wallet_service.dart';
+import '../wallet/withdraw_payment_processed_view.dart';
 
 class AdminWithdrawRequestsView extends StatefulWidget {
   const AdminWithdrawRequestsView({super.key});
@@ -120,20 +126,136 @@ class _AdminWithdrawRequestsViewState extends State<AdminWithdrawRequestsView> {
     return ok == true;
   }
 
+  Future<({String base64, String mime, Uint8List bytes})?> _pickProof() async {
+    try {
+      final path = await AndroidImagePicker.pickImage();
+      if (!mounted || path == null || path.isEmpty) return null;
+      final bytes = await File(path).readAsBytes();
+      if (bytes.length > 6 * 1024 * 1024) {
+        if (!mounted) return null;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: _card,
+            content: Text(
+              'Image must be smaller than 6MB',
+              style: TextStyle(color: Color(0xFFFF8A80)),
+            ),
+          ),
+        );
+        return null;
+      }
+      final lower = path.toLowerCase();
+      final mime = lower.endsWith('.png')
+          ? 'image/png'
+          : lower.endsWith('.webp')
+          ? 'image/webp'
+          : 'image/jpeg';
+      return (base64: base64Encode(bytes), mime: mime, bytes: bytes);
+    } on PlatformException catch (e) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: _card,
+          content: Text(
+            e.message?.isNotEmpty == true
+                ? e.message!
+                : 'Could not open gallery. Reinstall the latest APK.',
+            style: const TextStyle(color: Color(0xFFFF8A80)),
+          ),
+        ),
+      );
+      return null;
+    }
+  }
+
+  Future<bool> _confirmWithdraw({
+    required String amount,
+    required String phone,
+    required Uint8List preview,
+  }) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: _card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Mark as withdraw?',
+          style: TextStyle(
+            color: _cream,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Confirm you have sent $amount to $phone. This screenshot will be shown to the user.',
+              style: const TextStyle(color: _muted, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.memory(
+                preview,
+                height: 160,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: _muted)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: _green,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Mark as withdraw'),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   Future<void> _act(WithdrawRequestItem item, String action) async {
     if (_busyId != null) return;
     final amount = '₹${_rupee(item.amount)}';
     final phone = item.phoneNumber.isNotEmpty ? item.phoneNumber : item.username;
     final isReject = action == 'reject';
-    final confirmed = await _confirm(
-      title: isReject ? 'Reject request?' : 'Mark as withdraw?',
-      body: isReject
-          ? 'Return $amount to $phone. This request will be marked rejected.'
-          : 'Confirm you have sent $amount to $phone. This request will be marked withdrawn.',
-      confirmLabel: isReject ? 'Reject' : 'Mark as withdraw',
-      confirmColor: isReject ? const Color(0xFFDC4A4A) : _green,
-    );
-    if (!confirmed || !mounted) return;
+    String? imageBase64;
+    String imageMime = 'image/jpeg';
+
+    if (isReject) {
+      final confirmed = await _confirm(
+        title: 'Reject request?',
+        body: 'Return $amount to $phone. This request will be marked rejected.',
+        confirmLabel: 'Reject',
+        confirmColor: const Color(0xFFDC4A4A),
+      );
+      if (!confirmed || !mounted) return;
+    } else {
+      final picked = await _pickProof();
+      if (picked == null || !mounted) return;
+      imageBase64 = picked.base64;
+      imageMime = picked.mime;
+      final confirmed = await _confirmWithdraw(
+        amount: amount,
+        phone: phone,
+        preview: picked.bytes,
+      );
+      if (!confirmed || !mounted) return;
+    }
 
     setState(() => _busyId = item.id);
     try {
@@ -141,6 +263,8 @@ class _AdminWithdrawRequestsViewState extends State<AdminWithdrawRequestsView> {
         id: item.id,
         action: action,
         rejectReason: isReject ? 'Rejected' : '',
+        imageBase64: imageBase64,
+        imageMime: imageMime,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -149,6 +273,52 @@ class _AdminWithdrawRequestsViewState extends State<AdminWithdrawRequestsView> {
           content: Text(
             isReject ? 'Request rejected' : 'Marked as withdrawn',
             style: const TextStyle(color: _cream),
+          ),
+        ),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: _card,
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+            style: const TextStyle(color: Color(0xFFFF8A80)),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busyId = null);
+    }
+  }
+
+  Future<void> _replaceReceipt(WithdrawRequestItem item) async {
+    if (_busyId != null) return;
+    final picked = await _pickProof();
+    if (picked == null || !mounted) return;
+    final confirmed = await _confirm(
+      title: 'Replace screenshot?',
+      body: 'This payment screenshot will be shown to the user.',
+      confirmLabel: 'Save screenshot',
+      confirmColor: _green,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _busyId = item.id);
+    try {
+      await _service.updateAdminWithdrawRequest(
+        id: item.id,
+        action: 'receipt',
+        imageBase64: picked.base64,
+        imageMime: picked.mime,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: _card,
+          content: Text(
+            'Screenshot updated',
+            style: TextStyle(color: _cream),
           ),
         ),
       );
@@ -260,6 +430,19 @@ class _AdminWithdrawRequestsViewState extends State<AdminWithdrawRequestsView> {
                                 onCopy: _copy,
                                 onWithdraw: () => _act(item, 'complete'),
                                 onReject: () => _act(item, 'reject'),
+                                onEditReceipt: () => _replaceReceipt(item),
+                                onViewReceipt: item.receiptUrl.isEmpty
+                                    ? null
+                                    : () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute<void>(
+                                            builder: (_) =>
+                                                WithdrawPaymentProcessedView(
+                                              item: item,
+                                            ),
+                                          ),
+                                        );
+                                      },
                               );
                             },
                           ),
@@ -323,6 +506,8 @@ class _WithdrawCard extends StatelessWidget {
     required this.onCopy,
     required this.onWithdraw,
     required this.onReject,
+    required this.onEditReceipt,
+    this.onViewReceipt,
   });
 
   final WithdrawRequestItem item;
@@ -331,6 +516,8 @@ class _WithdrawCard extends StatelessWidget {
   final void Function(String label, String value) onCopy;
   final VoidCallback onWithdraw;
   final VoidCallback onReject;
+  final VoidCallback onEditReceipt;
+  final VoidCallback? onViewReceipt;
 
   static const Color _cream = Color(0xFFF4F1EA);
   static const Color _muted = Color(0xFF8B95A1);
@@ -453,6 +640,66 @@ class _WithdrawCard extends StatelessWidget {
               ],
             ),
           ),
+          if (item.status == 'completed' && item.receiptUrl.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            InkWell(
+              onTap: onViewReceipt,
+              borderRadius: BorderRadius.circular(14),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      item.receiptUrl,
+                      height: 64,
+                      width: 64,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Container(
+                        height: 64,
+                        width: 64,
+                        color: const Color(0xFF10141A),
+                        child: const Icon(
+                          Icons.image_outlined,
+                          color: _muted,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Payment screenshot',
+                      style: TextStyle(
+                        color: _cream,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: busy ? null : onEditReceipt,
+                    child: const Text(
+                      'Edit image',
+                      style: TextStyle(
+                        color: _green,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (item.status == 'completed') ...[
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: busy ? null : onEditReceipt,
+              icon: const Icon(Icons.add_photo_alternate_outlined, color: _green),
+              label: const Text(
+                'Add payment screenshot',
+                style: TextStyle(color: _green, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
           if (_canAct) ...[
             const SizedBox(height: 16),
             Row(

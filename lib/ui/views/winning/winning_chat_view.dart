@@ -113,57 +113,68 @@ class _WinningCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final line =
         '${WinTheme.lskLabel(report.lsk)} - ${report.number} - ${report.count} - ₹${WinTheme.rupee(report.winAmount > 0 ? report.winAmount : report.positionRate * report.count)}';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: WinTheme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: WinTheme.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  WinTheme.drawLabel(report.timeSlot),
-                  style: const TextStyle(color: WinTheme.muted, fontSize: 13),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: WinGlass(
+        borderRadius: 14,
+        color: const Color(0x18FFFFFF),
+        borderColor: const Color(0x55EAB308),
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            WinTheme.gold.withValues(alpha: 0.22),
+            const Color(0x14FFFFFF),
+            WinTheme.green.withValues(alpha: 0.16),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      WinTheme.drawLabel(report.timeSlot),
+                      style: const TextStyle(color: WinTheme.muted, fontSize: 13),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      line,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  line,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: WinTheme.gold,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-              ],
-            ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.emoji_events, size: 16, color: Colors.black),
+                    SizedBox(width: 4),
+                    Text(
+                      'WON',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: WinTheme.gold,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.emoji_events, size: 16, color: Colors.black),
-                SizedBox(width: 4),
-                Text(
-                  'WON',
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

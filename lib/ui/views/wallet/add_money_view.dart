@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -71,7 +73,9 @@ class _AddMoneyViewState extends State<AddMoneyView> {
             orderId: session.orderId,
             amount: amount.toDouble(),
             watchStatus: true,
-            onCancel: () {},
+            onCancel: () {
+              unawaited(_wallet.cancelCarcarePayment(session.orderId));
+            },
           ),
         ),
       );

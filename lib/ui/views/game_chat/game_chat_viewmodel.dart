@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stacked/stacked.dart';
 
@@ -7,6 +8,7 @@ import '../../../services/admin_service.dart';
 import '../../../services/result_service.dart';
 import '../../../services/sales_service.dart';
 import '../../../services/session_service.dart';
+import '../../../services/wallet_balance_store.dart';
 import '../../../services/winning_service.dart';
 import '../home/game_chat_data.dart';
 
@@ -15,6 +17,7 @@ enum GameStatusBannerKind { countdown, gameClosed, resultPublished }
 class GameChatViewModel extends BaseViewModel {
   GameChatViewModel({
     required this.game,
+    TimeAndCountSetting? initialTimeSetting,
     SalesService? salesService,
     AdminService? adminService,
     ResultService? resultService,
@@ -23,8 +26,13 @@ class GameChatViewModel extends BaseViewModel {
        _adminService = adminService ?? const AdminService(),
        _resultService = resultService ?? const ResultService(),
        _winningService = winningService ?? const WinningService() {
+    _timeSetting =
+        initialTimeSetting ?? AdminService.cachedTimeSetting(game.timeSlot);
+    _config = AdminService.cachedAppConfig;
     numberController.addListener(_onNumberFieldUpdated);
     countController.addListener(_handleInputChanged);
+    WalletBalanceStore.instance.addListener(_onWalletStore);
+    unawaited(initialise());
   }
 
   final GameChatData game;
@@ -37,6 +45,11 @@ class GameChatViewModel extends BaseViewModel {
   final TextEditingController countController = TextEditingController();
   final FocusNode numberFocusNode = FocusNode();
   final FocusNode countFocusNode = FocusNode();
+  String _activeField = 'number';
+  bool _keyboardVisible = true;
+
+  String get activeField => _activeField;
+  bool get isKeyboardVisible => _keyboardVisible;
 
   final List<String> numberModes = const ['1D', '2D', '3D'];
   final List<SalesRecord> sales = [];
@@ -44,8 +57,8 @@ class GameChatViewModel extends BaseViewModel {
   final List<WinningReport> winningMessages = [];
   final ScrollController chatScrollController = ScrollController();
 
-  String selectedNumberMode = '1D';
-  String selectedOption = 'A';
+  String selectedNumberMode = '3D';
+  String selectedOption = 'Super';
   String? errorMessage;
   bool _initialised = false;
   MobileAppConfig? _config;
@@ -77,9 +90,73 @@ class GameChatViewModel extends BaseViewModel {
     final text = numberController.text;
     if (text.length != digitLength) return;
     if (int.tryParse(text) == null) return;
-    if (countFocusNode.canRequestFocus) {
-      countFocusNode.requestFocus();
+    setActiveField('count');
+  }
+
+  void _focusNumberField() {
+    setActiveField('number');
+  }
+
+  void setActiveField(String field) {
+    if (field != 'number' && field != 'count') return;
+    _activeField = field;
+    _keyboardVisible = true;
+    final node = field == 'number' ? numberFocusNode : countFocusNode;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (node.canRequestFocus) {
+        node.requestFocus();
+      }
+      SystemChannels.textInput.invokeMethod('TextInput.hide');
+    });
+    notifyListeners();
+  }
+
+  void hideSaleKeyboard() {
+    if (!_keyboardVisible) return;
+    _keyboardVisible = false;
+    numberFocusNode.unfocus();
+    countFocusNode.unfocus();
+    notifyListeners();
+  }
+
+  void onKeyboardDigit(String digit) {
+    if (isBusy || digit.length != 1 || int.tryParse(digit) == null) return;
+    final overflowNumber =
+        _activeField == 'number' && numberController.text.length >= digitLength;
+    final field = overflowNumber ? 'count' : _activeField;
+    final controller = field == 'number' ? numberController : countController;
+    final maxLen = field == 'number' ? digitLength : 3;
+    if (controller.text.length >= maxLen) return;
+    final newVal = '${controller.text}$digit';
+    controller.value = TextEditingValue(
+      text: newVal,
+      selection: TextSelection.collapsed(offset: newVal.length),
+    );
+    if (overflowNumber) setActiveField('count');
+  }
+
+  void onKeyboardBackspace() {
+    if (isBusy) return;
+    final controller =
+        _activeField == 'number' ? numberController : countController;
+    if (controller.text.isEmpty) {
+      if (_activeField == 'count' && numberController.text.isNotEmpty) {
+        setActiveField('number');
+      }
+      return;
     }
+    final newVal = controller.text.substring(0, controller.text.length - 1);
+    controller.value = TextEditingValue(
+      text: newVal,
+      selection: TextSelection.collapsed(offset: newVal.length),
+    );
+  }
+
+  void onKeyboardClear() {
+    if (isBusy) return;
+    numberController.clear();
+    countController.clear();
+    setActiveField('number');
   }
 
   void _trimNumberIfLongerThanMode() {
@@ -121,10 +198,8 @@ class GameChatViewModel extends BaseViewModel {
       }
     });
     chatScrollController.addListener(_onChatScroll);
-    await Future.wait([
-      refreshAppConfigAndTimes(),
-      loadSales(),
-    ]);
+    unawaited(refreshAppConfigAndTimes());
+    await loadSales();
     unawaited(refreshClosedSessionResultStatus());
   }
 
@@ -176,36 +251,48 @@ class GameChatViewModel extends BaseViewModel {
   }
 
   Future<void> refreshAppConfigAndTimes() async {
+    await Future.wait([
+      _loadAppConfig(),
+      _loadTimeSetting(),
+    ]);
+    notifyListeners();
+  }
+
+  Future<void> _loadAppConfig() async {
     try {
       _config = await _adminService.getMobileAppConfig();
     } catch (_) {
-      _config = null;
+      _config ??= AdminService.cachedAppConfig;
     }
+    final seeded = _config?.walletBalance;
+    if (seeded != null && WalletBalanceStore.instance.available == null) {
+      WalletBalanceStore.instance.setAvailable(seeded);
+    }
+  }
+
+  Future<void> _loadTimeSetting() async {
+    try {
+      final setting = await _adminService.getTimeAndCountSettingByTimeSlot(
+        game.timeSlot,
+      );
+      if (setting != null) {
+        _timeSetting = setting;
+        notifyListeners();
+        return;
+      }
+    } catch (_) {}
     try {
       final timeSettings = await _adminService.getTimeAndCountSettings();
-      _timeSetting = timeSettings.firstWhere(
-        (item) => item.timeSlot.toLowerCase() == game.timeSlot.toLowerCase(),
-        orElse: () => TimeAndCountSetting(
-          timeSlot: game.timeSlot,
-          closeTime: '',
-          openTime: '',
-          deletionTime: '',
-          fillTime: '',
-          singleLimitEnabled: false,
-          singleLimitValue: 0,
-          doubleLimitEnabled: false,
-          doubleLimitValue: 0,
-          boxLimitEnabled: false,
-          boxLimitValue: 0,
-          superLimitEnabled: false,
-          superLimitValue: 0,
-          saleChatSecondBanner: '',
-        ),
-      );
+      for (final item in timeSettings) {
+        if (item.timeSlot.toLowerCase() == game.timeSlot.toLowerCase()) {
+          _timeSetting = item;
+          notifyListeners();
+          return;
+        }
+      }
     } catch (_) {
-      _timeSetting = null;
+      _timeSetting ??= AdminService.cachedTimeSetting(game.timeSlot);
     }
-    notifyListeners();
   }
 
   /// Result date for the draw that just closed (while between close and next open).
@@ -267,11 +354,13 @@ class GameChatViewModel extends BaseViewModel {
     final isFirstLoad =
         sales.isEmpty && resultMessages.isEmpty && winningMessages.isEmpty;
     errorMessage = null;
-    if (isFirstLoad) {
+    if (isFirstLoad && !isBusy) {
       loadingMessages = true;
+      notifyListeners();
+    } else if (!isBusy) {
+      setBusy(true);
+      notifyListeners();
     }
-    setBusy(true);
-    notifyListeners();
 
     try {
       late final SalesPage items;
@@ -375,6 +464,7 @@ class GameChatViewModel extends BaseViewModel {
     selectedNumberMode = value;
     selectedOption = currentOptions.first;
     errorMessage = null;
+    _keyboardVisible = true;
     _trimNumberIfLongerThanMode();
     notifyListeners();
   }
@@ -382,6 +472,7 @@ class GameChatViewModel extends BaseViewModel {
   void selectOption(String value) {
     selectedOption = value;
     errorMessage = null;
+    _keyboardVisible = true;
     notifyListeners();
   }
 
@@ -408,12 +499,13 @@ class GameChatViewModel extends BaseViewModel {
     }
   }
 
-  String get numberHint => '$digitLength-digit number';
+  void _onWalletStore() => notifyListeners();
 
-  /// Shown next to stake on the composer (customer wallet from app-config).
+  /// Shown next to stake on the composer (shared live wallet).
   String get walletBalanceLabel {
     if (SessionService.isAdmin) return '—';
-    final b = _config?.walletBalance;
+    final live = WalletBalanceStore.instance.available;
+    final b = live ?? _config?.walletBalance;
     if (b == null) return '₹0';
     return '₹${_fmtRupee(b)}';
   }
@@ -527,8 +619,10 @@ class GameChatViewModel extends BaseViewModel {
     if (closeTime.isNotEmpty) {
       return 'Welcome to ${game.name}! Place your bets before ${_formatClockLabel(closeTime)}.';
     }
-    return 'Welcome to ${game.name}! Place your bets before close time.';
+    return 'Welcome to ${game.name}! Place your bets before ${game.time}.';
   }
+
+  bool get showChatBanners => !loadingMessages || _timeSetting != null;
 
   /// Edit/delete until the earlier of 5 minutes after place or game close.
   DateTime? editDeadlineForSale(SalesRecord sale) {
@@ -711,6 +805,12 @@ class GameChatViewModel extends BaseViewModel {
       return;
     }
 
+    if (count > 999) {
+      errorMessage = 'Count can be at most 3 digits.';
+      notifyListeners();
+      return;
+    }
+
     setBusy(true);
     notifyListeners();
 
@@ -731,12 +831,15 @@ class GameChatViewModel extends BaseViewModel {
       numberController.clear();
       countController.clear();
       await loadSales();
-      await refreshAppConfigAndTimes();
+      unawaited(refreshAppConfigAndTimes());
     } catch (error) {
       errorMessage = error.toString().replaceFirst('Exception: ', '');
     } finally {
       setBusy(false);
       notifyListeners();
+      if (errorMessage == null) {
+        _focusNumberField();
+      }
     }
   }
 
@@ -758,8 +861,8 @@ class GameChatViewModel extends BaseViewModel {
       notifyListeners();
       return false;
     }
-    if (count <= 0) {
-      errorMessage = 'Enter a valid count.';
+    if (count <= 0 || count > 999) {
+      errorMessage = 'Count must be 1 to 999.';
       notifyListeners();
       return false;
     }
@@ -780,7 +883,7 @@ class GameChatViewModel extends BaseViewModel {
         camount: camount,
       );
       await loadSales();
-      await refreshAppConfigAndTimes();
+      unawaited(refreshAppConfigAndTimes());
       return true;
     } catch (error) {
       errorMessage = error.toString().replaceFirst('Exception: ', '');
@@ -805,7 +908,7 @@ class GameChatViewModel extends BaseViewModel {
     try {
       await _salesService.deleteSale(id: sale.id);
       await loadSales();
-      await refreshAppConfigAndTimes();
+      unawaited(refreshAppConfigAndTimes());
       return true;
     } catch (error) {
       errorMessage = error.toString().replaceFirst('Exception: ', '');
@@ -819,6 +922,7 @@ class GameChatViewModel extends BaseViewModel {
 
   @override
   void dispose() {
+    WalletBalanceStore.instance.removeListener(_onWalletStore);
     _clockTimer?.cancel();
     chatScrollController.removeListener(_onChatScroll);
     chatScrollController.dispose();

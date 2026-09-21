@@ -152,7 +152,7 @@ class _ReferCardBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Image.asset(
-          'assets/refer_and_earn.jpeg',
+          'assets/mohanlal.png',
           height: _s(168),
           fit: BoxFit.contain,
         ),

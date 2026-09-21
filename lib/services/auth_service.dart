@@ -51,8 +51,9 @@ class MobileProfile {
     required this.entryBalance,
     required this.totalWinnings,
     required this.referralEarned,
-    required this.inviteCount,
+        required this.inviteCount,
     this.profileImageUrl,
+    this.phoneVerified = false,
   });
 
   final String name;
@@ -66,6 +67,7 @@ class MobileProfile {
   final double referralEarned;
   final int inviteCount;
   final String? profileImageUrl;
+  final bool phoneVerified;
 }
 
 class AuthService {
@@ -106,6 +108,24 @@ class AuthService {
     } catch (error) {
       if (isNetworkError(error)) throw mapNetworkError(error);
       rethrow;
+    }
+  }
+
+  Future<String?> fetchReferralHint() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/referral-hint'),
+            headers: jsonHeaders(),
+          )
+          .timeout(apiTimeout);
+      final body = _decodeBody(response.body);
+      final data = body['data'] as Map<String, dynamic>? ?? {};
+      final code = data['referralCode']?.toString().trim().toUpperCase() ?? '';
+      if (code.isEmpty) return null;
+      return code.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    } catch (_) {
+      return null;
     }
   }
 
@@ -198,7 +218,7 @@ class AuthService {
           : imagePath.startsWith('http')
           ? imagePath
           : '${AppConfig.apiBaseUrl}$imagePath';
-      return MobileProfile(
+      final profile = MobileProfile(
         name: data['name']?.toString() ?? '',
         displayPhoneNumber:
             data['displayPhoneNumber']?.toString() ??
@@ -216,7 +236,10 @@ class AuthService {
             double.tryParse(referral['referralEarned']?.toString() ?? '') ?? 0,
         inviteCount: int.tryParse(referral['inviteCount']?.toString() ?? '') ?? 0,
         profileImageUrl: imageUrl,
+        phoneVerified: data['phoneVerified'] == true,
       );
+      SessionService.setPhoneVerified(profile.phoneVerified);
+      return profile;
     } catch (_) {
       return null;
     }
@@ -249,6 +272,33 @@ class AuthService {
     final body = _decodeBody(response.body);
     if (response.statusCode >= 400 || body['success'] != true) {
       throw Exception(body['message'] ?? 'Failed to update profile');
+    }
+  }
+
+  Future<void> confirmPhoneVerification(String idToken) async {
+    final token = SessionService.authToken;
+    if (token == null || token.isEmpty) {
+      throw Exception('Login required');
+    }
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/verify-phone'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'idToken': idToken}),
+          )
+          .timeout(apiTimeout);
+      final body = _decodeBody(response.body);
+      if (response.statusCode >= 400 || body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to verify mobile number');
+      }
+      SessionService.markPhoneVerified();
+    } catch (error) {
+      if (isNetworkError(error)) throw mapNetworkError(error);
+      rethrow;
     }
   }
 
@@ -336,6 +386,7 @@ class AuthService {
       sessionRole: role,
       sessionReferralCode: referralCode,
       sessionIsAdmin: isAdmin,
+      sessionPhoneVerified: user['phoneVerified'] == true,
     );
 
     return MobileAuthResult(

@@ -1,4 +1,7 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class WinTheme {
   static const Color bg = Color(0xFF0B141A);
@@ -122,5 +125,96 @@ class WinTheme {
     if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
     if (day == today.add(const Duration(days: 1))) return 'Tomorrow';
     return monthDay(day);
+  }
+
+  /// Dark screens (home/admin): white clock/battery.
+  static const SystemUiOverlayStyle darkStatusBar = SystemUiOverlayStyle(
+    statusBarColor: Color(0xFF0B141A),
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.dark,
+    systemNavigationBarColor: Color(0xFF0B141A),
+    systemNavigationBarIconBrightness: Brightness.light,
+    systemStatusBarContrastEnforced: false,
+    systemNavigationBarContrastEnforced: false,
+  );
+
+  /// Light screens (login): dark clock/battery.
+  static const SystemUiOverlayStyle lightStatusBar = SystemUiOverlayStyle(
+    statusBarColor: Colors.white,
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
+    systemNavigationBarColor: Colors.white,
+    systemNavigationBarIconBrightness: Brightness.dark,
+    systemStatusBarContrastEnforced: false,
+    systemNavigationBarContrastEnforced: false,
+  );
+
+  /// Green chat header under the status bar: white clock/battery.
+  static const SystemUiOverlayStyle greenStatusBar = SystemUiOverlayStyle(
+    statusBarColor: Color(0xFF008069),
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.dark,
+    systemNavigationBarColor: Color(0xFFF1F2F6),
+    systemNavigationBarIconBrightness: Brightness.dark,
+    systemStatusBarContrastEnforced: false,
+    systemNavigationBarContrastEnforced: false,
+  );
+}
+
+class WinStatusBar extends StatelessWidget {
+  const WinStatusBar({
+    super.key,
+    required this.child,
+    this.style = WinTheme.darkStatusBar,
+  });
+
+  final Widget child;
+  final SystemUiOverlayStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: style,
+      child: child,
+    );
+  }
+}
+
+class WinGlass extends StatelessWidget {
+  const WinGlass({
+    super.key,
+    required this.child,
+    this.borderRadius = 16,
+    this.color = const Color(0x22FFFFFF),
+    this.borderColor = const Color(0x44FDE68A),
+    this.blur = 16,
+    this.gradient,
+  });
+
+  final Widget child;
+  final double borderRadius;
+  final Color color;
+  final Color borderColor;
+  final double blur;
+  final Gradient? gradient;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(borderRadius);
+    return ClipRRect(
+      borderRadius: radius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            color: gradient == null ? color : null,
+            gradient: gradient,
+            border: Border.all(color: borderColor),
+          ),
+          child: child,
+        ),
+      ),
+    );
   }
 }

@@ -2,16 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:stacked/stacked.dart';
 
+import '../../../services/admin_service.dart';
 import '../../../services/sales_service.dart';
 import '../../../services/winning_service.dart';
 import '../../theme/win_theme.dart';
 import '../home/game_chat_data.dart';
+import '../wallet/wallet_view.dart';
 import 'game_chat_viewmodel.dart';
 
 class GameChatView extends StackedView<GameChatViewModel> {
-  const GameChatView({super.key, required this.game});
+  const GameChatView({
+    super.key,
+    required this.game,
+    this.initialTimeSetting,
+  });
 
   final GameChatData game;
+  final TimeAndCountSetting? initialTimeSetting;
 
   @override
   Widget builder(
@@ -38,87 +45,63 @@ class GameChatView extends StackedView<GameChatViewModel> {
       ),
     );
 
-    return Scaffold(
+    return WinStatusBar(
+      style: WinTheme.greenStatusBar,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
-      body: SafeArea(
-        child: Column(
+      resizeToAvoidBottomInset: false,
+      body: Column(
           children: [
-            _ChatHeader(
-              game: game,
-              subtitle: viewModel.headerCloseLabel,
+            ColoredBox(
+              color: const Color(0xFF008069),
+              child: SafeArea(
+                bottom: false,
+                child: _ChatHeader(
+                  game: game,
+                  subtitle: viewModel.headerCloseLabel,
+                  walletBalanceLabel: viewModel.walletBalanceLabel,
+                ),
+              ),
             ),
-            Expanded(
-              child: Column(
+            if (viewModel.showChatBanners)
+              Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                    child: Column(
-                      children: [
-                        if (viewModel.showStatusBanner) ...[
-                          _StatusBanner(
-                            kind: viewModel.statusBannerKind,
-                            text: viewModel.statusBannerText,
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        _SystemBanner(
-                          text: viewModel.announcementWelcomeText,
-                        ),
-                        if (viewModel.showSecondSaleBanner) ...[
-                          const SizedBox(height: 8),
-                          _SystemBanner(
-                            text: viewModel.announcementSecondBannerText,
-                          ),
-                        ],
-                        if (viewModel.errorMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
+                  const ColoredBox(
+                    color: Colors.white,
+                    child: SizedBox(width: double.infinity, height: 1),
+                  ),
+                  if (viewModel.showStatusBanner)
+                    _StatusBanner(
+                      kind: viewModel.statusBannerKind,
+                      text: viewModel.statusBannerText,
+                    ),
+                  _SystemBanner(
+                    text: viewModel.announcementWelcomeText,
+                    secondText: viewModel.showSecondSaleBanner
+                        ? viewModel.announcementSecondBannerText
+                        : null,
+                  ),
+                ],
+              ),
+            Expanded(
+              child: SafeArea(
+                top: false,
+                bottom: false,
+                child: Column(
+                children: [
+                  Expanded(
+                    child: viewModel.loadingMessages
+                        ? const _ChatLoadingIndicator()
+                        : combinedMessages.isEmpty
+                        ? const Center(
                             child: Text(
-                              viewModel.errorMessage!,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.redAccent,
+                              'No messages yet.',
+                              style: TextStyle(
+                                color: Color(0xFF9CA3AF),
                                 fontSize: 12,
-                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: combinedMessages.isEmpty
-                        ? Center(
-                            child: viewModel.loadingMessages
-                                ? const Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      SizedBox(
-                                        width: 28,
-                                        height: 28,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 3,
-                                          color: Color(0xFF10B981),
-                                        ),
-                                      ),
-                                      SizedBox(height: 12),
-                                      Text(
-                                        'Loading chats...',
-                                        style: TextStyle(
-                                          color: Color(0xFF9CA3AF),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : const Text(
-                                    'No messages yet.',
-                                    style: TextStyle(
-                                      color: Color(0xFF9CA3AF),
-                                      fontSize: 12,
-                                    ),
-                                  ),
                           )
                         : ListView.builder(
                             reverse: true,
@@ -205,10 +188,27 @@ class GameChatView extends StackedView<GameChatViewModel> {
                                 ),
                   ),
                   viewModel.isGameClosed
-                      ? _ClosedGamePanel(opensAtLabel: viewModel.opensAtLabel)
-                      : _ComposerPanel(viewModel: viewModel),
+                      ? SafeArea(
+                          top: false,
+                          child: _ClosedGamePanel(
+                            opensAtLabel: viewModel.opensAtLabel,
+                          ),
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _ComposerPanel(viewModel: viewModel),
+                            if (viewModel.isKeyboardVisible)
+                              _SaleNumericKeyboard(viewModel: viewModel)
+                            else
+                              SizedBox(
+                                height: MediaQuery.paddingOf(context).bottom,
+                              ),
+                          ],
+                        ),
                 ],
               ),
+            ),
             ),
           ],
         ),
@@ -218,7 +218,10 @@ class GameChatView extends StackedView<GameChatViewModel> {
 
   @override
   GameChatViewModel viewModelBuilder(BuildContext context) =>
-      GameChatViewModel(game: game);
+      GameChatViewModel(
+        game: game,
+        initialTimeSetting: initialTimeSetting,
+      );
 
   @override
   void onViewModelReady(GameChatViewModel viewModel) {
@@ -270,7 +273,10 @@ class GameChatView extends StackedView<GameChatViewModel> {
               TextField(
                 controller: countController,
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(3),
+                ],
                 decoration: const InputDecoration(
                   labelText: 'Count',
                   border: OutlineInputBorder(),
@@ -379,11 +385,8 @@ class _StatusBanner extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(10),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: color,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -408,10 +411,12 @@ class _ChatHeader extends StatelessWidget {
   const _ChatHeader({
     required this.game,
     required this.subtitle,
+    required this.walletBalanceLabel,
   });
 
   final GameChatData game;
   final String subtitle;
+  final String walletBalanceLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -442,21 +447,63 @@ class _ChatHeader extends StatelessWidget {
               children: [
                 Text(
                   game.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: 17,
                     fontWeight: FontWeight.w700,
+                    height: 1.05,
                   ),
                 ),
-                const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(color: Color(0xFFD8EFEA), fontSize: 12),
+                  style: const TextStyle(
+                    color: Color(0xFFD8EFEA),
+                    fontSize: 12,
+                    height: 1.1,
+                  ),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.more_vert, color: Colors.white),
+          const SizedBox(width: 8),
+          Material(
+            color: Colors.white.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const WalletView(),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 6, 10, 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.account_balance_wallet_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      walletBalanceLabel,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -523,25 +570,24 @@ class _ComposerPanel extends StatelessWidget {
         color: Color(0xFFF1F2F6),
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              for (final mode in viewModel.numberModes) ...[
-                Expanded(
-                  child: _ModeChip(
-                    label: mode,
-                    selected: viewModel.selectedNumberMode == mode,
-                    onTap: () => viewModel.selectGameType(mode),
-                  ),
+          if (viewModel.errorMessage != null) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                viewModel.errorMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
-                if (mode != viewModel.numberModes.last) const SizedBox(width: 8),
-              ],
-            ],
-          ),
-          const SizedBox(height: 10),
+              ),
+            ),
+          ],
           Row(
             children: [
               for (final option in viewModel.currentOptions) ...[
@@ -552,113 +598,111 @@ class _ComposerPanel extends StatelessWidget {
                     onTap: () => viewModel.selectOption(option),
                   ),
                 ),
-                if (option != viewModel.currentOptions.last) const SizedBox(width: 8),
+                if (option != viewModel.currentOptions.last)
+                  const SizedBox(width: 6),
               ],
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
-                flex: 4,
-                child: TextField(
+                flex: 5,
+                child: _ComposerDigitField(
                   controller: viewModel.numberController,
                   focusNode: viewModel.numberFocusNode,
-                  keyboardType: TextInputType.number,
-                  textInputAction: TextInputAction.next,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(viewModel.digitLength),
-                  ],
-                  decoration: InputDecoration(
-                    hintText: viewModel.numberHint,
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    border: OutlineInputBorder(
-                      borderSide: BorderSide.none,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
+                  hintText: 'Number',
+                  active: viewModel.isKeyboardVisible &&
+                      viewModel.activeField == 'number',
+                  maxLength: viewModel.digitLength,
+                  onTap: () => viewModel.setActiveField('number'),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
-                flex: 2,
-                child: TextField(
+                flex: 4,
+                child: _ComposerDigitField(
                   controller: viewModel.countController,
                   focusNode: viewModel.countFocusNode,
-                  keyboardType: TextInputType.number,
-                  textInputAction: TextInputAction.done,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: InputDecoration(
-                    hintText: 'Count',
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    border: OutlineInputBorder(
-                      borderSide: BorderSide.none,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
+                  hintText: 'Count',
+                  active: viewModel.isKeyboardVisible &&
+                      viewModel.activeField == 'count',
+                  maxLength: 3,
+                  onTap: () => viewModel.setActiveField('count'),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Text(
-                '₹${viewModel.amount}',
-                style: const TextStyle(
-                  color: Color(0xFF008069),
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
+              const SizedBox(width: 6),
+              for (final mode in viewModel.numberModes) ...[
+                _ModeChip(
+                  label: mode,
+                  selected: viewModel.selectedNumberMode == mode,
+                  onTap: () => viewModel.selectGameType(mode),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Bal: ${viewModel.walletBalanceLabel}',
-                style: const TextStyle(color: Color(0xFF6B7280), fontSize: 16),
-              ),
-              const Spacer(),
-              InkWell(
-                onTap: viewModel.isBusy ? null : viewModel.submitSale,
-                borderRadius: BorderRadius.circular(24),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF10B981),
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: viewModel.isBusy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(
-                          Icons.send_rounded,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                ),
-              ),
+                if (mode != viewModel.numberModes.last) const SizedBox(width: 4),
+              ],
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ComposerDigitField extends StatelessWidget {
+  const _ComposerDigitField({
+    required this.controller,
+    required this.focusNode,
+    required this.hintText,
+    required this.active,
+    required this.maxLength,
+    required this.onTap,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final String hintText;
+  final bool active;
+  final int maxLength;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(
+        color: active ? const Color(0xFF008069) : Colors.transparent,
+        width: 2,
+      ),
+    );
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      readOnly: true,
+      showCursor: true,
+      enableInteractiveSelection: false,
+      keyboardType: TextInputType.none,
+      onTap: onTap,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(maxLength),
+      ],
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+        filled: true,
+        fillColor: Colors.white,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        border: border,
+        enabledBorder: border,
+        focusedBorder: border,
+      ),
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: Color(0xFF111827),
+      ),
+      textAlign: TextAlign.center,
     );
   }
 }
@@ -674,24 +718,32 @@ class _ModeChip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  static const _selectedYellow = Color(0xFFC9A227);
+
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        height: 38,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFF008069) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF008069)),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : const Color(0xFF008069),
-            fontWeight: FontWeight.w700,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Ink(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: selected ? _selectedYellow : Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: _selectedYellow),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: selected ? Colors.white : _selectedYellow,
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+              ),
+            ),
           ),
         ),
       ),
@@ -734,28 +786,322 @@ class _OptionChip extends StatelessWidget {
   }
 }
 
+const double _kSaleKeyHeight = 38;
+const double _kSaleKeyRadius = 8;
+const Color _kSaleKeyboardColor = Color(0xFF008069);
+const Color _kSaleKeyBorder = Color(0xB3FFFFFF);
+
+class _SaleNumericKeyboard extends StatelessWidget {
+  const _SaleNumericKeyboard({required this.viewModel});
+
+  final GameChatViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: _kSaleKeyboardColor,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 2, 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  _numKey('1'),
+                  _numKey('2'),
+                  _numKey('3'),
+                  _actionKey(
+                    child: const Text(
+                      'Delete',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                    onTap: viewModel.onKeyboardBackspace,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  _numKey('4'),
+                  _numKey('5'),
+                  _numKey('6'),
+                  _actionKey(
+                    child: const Text(
+                      'Reset',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
+                    onTap: viewModel.onKeyboardClear,
+                    borderless: true,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  _numKey('7'),
+                  _numKey('8'),
+                  _numKey('9'),
+                  const Expanded(
+                    flex: 4,
+                    child: SizedBox(height: _kSaleKeyHeight),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  _actionKey(
+                    child: const Icon(
+                      Icons.arrow_back,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onTap: viewModel.hideSaleKeyboard,
+                    borderless: true,
+                    flex: 2,
+                  ),
+                  _numKey('0'),
+                  const Expanded(
+                    flex: 2,
+                    child: SizedBox(height: _kSaleKeyHeight),
+                  ),
+                  _actionKey(
+                    child: viewModel.isBusy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFF008069),
+                            ),
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '₹${viewModel.amount}',
+                                    style: const TextStyle(
+                                      color: Color(0xFF008069),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.send_rounded,
+                                    color: Color(0xFF008069),
+                                    size: 18,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                    onTap: viewModel.isBusy ? () {} : viewModel.submitSale,
+                    color: Colors.white,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _numKey(String label) {
+    return Expanded(
+      flex: 2,
+      child: _PressableKeyboardKey(
+        onTap: () => viewModel.onKeyboardDigit(label),
+        child: Container(
+          height: _kSaleKeyHeight,
+          margin: const EdgeInsets.only(right: 6),
+          decoration: BoxDecoration(
+            color: _kSaleKeyboardColor,
+            borderRadius: BorderRadius.circular(_kSaleKeyRadius),
+            border: Border.all(color: _kSaleKeyBorder, width: 0.5),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _actionKey({
+    required Widget child,
+    required VoidCallback onTap,
+    Color? color,
+    bool borderless = false,
+    int flex = 4,
+  }) {
+    final bg = color ?? _kSaleKeyboardColor;
+    return Expanded(
+      flex: flex,
+      child: _PressableKeyboardKey(
+        onTap: onTap,
+        child: Container(
+          height: _kSaleKeyHeight,
+          margin: const EdgeInsets.only(right: 6),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: borderless
+                ? null
+                : BorderRadius.circular(_kSaleKeyRadius),
+            border: borderless
+                ? null
+                : Border.all(color: _kSaleKeyBorder, width: 0.5),
+          ),
+          alignment: Alignment.center,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _PressableKeyboardKey extends StatefulWidget {
+  const _PressableKeyboardKey({
+    required this.onTap,
+    required this.child,
+  });
+
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  State<_PressableKeyboardKey> createState() => _PressableKeyboardKeyState();
+}
+
+class _PressableKeyboardKeyState extends State<_PressableKeyboardKey> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _setPressed(true),
+      onTapUp: (_) => _setPressed(false),
+      onTapCancel: () => _setPressed(false),
+      onTap: widget.onTap,
+      child: ColorFiltered(
+        colorFilter: ColorFilter.mode(
+          _pressed ? const Color(0x66000000) : Colors.transparent,
+          BlendMode.srcATop,
+        ),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _ChatLoadingIndicator extends StatelessWidget {
+  const _ChatLoadingIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Padding(
+          padding: EdgeInsets.all(8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: Color(0xFF10B981),
+                ),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Loading chats...',
+                style: TextStyle(
+                  color: Color(0xFF9CA3AF),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SystemBanner extends StatelessWidget {
-  const _SystemBanner({required this.text});
+  const _SystemBanner({required this.text, this.secondText});
 
   final String text;
+  final String? secondText;
+
+  static const _style = TextStyle(
+    color: Color(0xFF7C6227),
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    height: 1.25,
+  );
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFDF0C1),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Color(0xFF7C6227),
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      color: const Color(0xFFFDF0C1),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: _style,
+          ),
+          if (secondText != null && secondText!.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 5),
+              child: Divider(
+                height: 1,
+                thickness: 1,
+                color: Color(0xFFE0C56A),
+              ),
+            ),
+            Text(
+              secondText!,
+              textAlign: TextAlign.center,
+              style: _style,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -833,73 +1179,64 @@ class _SaleBubble extends StatelessWidget {
         alignment: Alignment.centerRight,
         child: Container(
           width: showActions ? 250 : 230,
-          padding: const EdgeInsets.fromLTRB(10, 6, 10, 5),
+          padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
           decoration: BoxDecoration(
             color: const Color(0xFFD9FDD3),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${_labelFromLsk()}  ${sale.number}-${sale.count}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                        height: 1.2,
-                        color: Color(0xFF0F172A),
-                      ),
+              Expanded(
+                child: Text(
+                  '${_labelFromLsk()}  ${sale.number}-${sale.count}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    height: 1.05,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+              if (showActions) ...[
+                InkWell(
+                  onTap: onEdit,
+                  borderRadius: BorderRadius.circular(12),
+                  child: const Padding(
+                    padding: EdgeInsets.all(2),
+                    child: Icon(
+                      Icons.edit_outlined,
+                      size: 15,
+                      color: Color(0xFF0F766E),
                     ),
                   ),
-                  if (showActions) ...[
-                    InkWell(
-                      onTap: onEdit,
-                      borderRadius: BorderRadius.circular(12),
-                      child: const Padding(
-                        padding: EdgeInsets.all(4),
-                        child: Icon(
-                          Icons.edit_outlined,
-                          size: 16,
-                          color: Color(0xFF0F766E),
-                        ),
-                      ),
+                ),
+                InkWell(
+                  onTap: onDelete,
+                  borderRadius: BorderRadius.circular(12),
+                  child: const Padding(
+                    padding: EdgeInsets.all(2),
+                    child: Icon(
+                      Icons.delete_outline,
+                      size: 15,
+                      color: Color(0xFFDC2626),
                     ),
-                    InkWell(
-                      onTap: onDelete,
-                      borderRadius: BorderRadius.circular(12),
-                      child: const Padding(
-                        padding: EdgeInsets.all(4),
-                        child: Icon(
-                          Icons.delete_outline,
-                          size: 16,
-                          color: Color(0xFFDC2626),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (timeLabel.isNotEmpty) ...[
-                    Text(
-                      timeLabel,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Color(0xFF6B7280),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                  Icon(Icons.done_all, size: 15, color: tickColor),
-                ],
-              ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
+              if (timeLabel.isNotEmpty) ...[
+                Text(
+                  timeLabel,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    height: 1,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+                const SizedBox(width: 3),
+              ],
+              Icon(Icons.done_all, size: 14, color: tickColor),
             ],
           ),
         ),
@@ -923,8 +1260,8 @@ class _ThumbsUpReplyBubble extends StatelessWidget {
             borderRadius: BorderRadius.all(Radius.circular(14)),
           ),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Text('👍', style: TextStyle(fontSize: 22)),
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Text('👍', style: TextStyle(fontSize: 18)),
           ),
         ),
       ),

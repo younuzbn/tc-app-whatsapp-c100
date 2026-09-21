@@ -1,7 +1,12 @@
+import 'dart:async';
+
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stacked/stacked.dart';
 
 import '../../../../services/auth_service.dart';
+import '../../../../services/referral_share.dart';
+import '../../../../services/session_service.dart';
 
 enum PhoneLoginStep { phone, passwordLogin, passwordRegister }
 
@@ -19,7 +24,17 @@ enum PhoneLoginResultKind { stay, goToOtp, loggedIn }
 
 class PhoneLoginViewModel extends BaseViewModel {
   PhoneLoginViewModel({AuthService? authService})
-    : _authService = authService ?? const AuthService();
+    : _authService = authService ?? const AuthService() {
+    final last = SessionService.lastPhoneNumber;
+    if (last != null && last.isNotEmpty) {
+      phoneController.text = last;
+      phoneController.selection = TextSelection.collapsed(offset: last.length);
+    }
+    final pending = SessionService.pendingReferralCode;
+    if (pending != null && pending.isNotEmpty) {
+      referralController.text = pending;
+    }
+  }
 
   final AuthService _authService;
 
@@ -50,6 +65,30 @@ class PhoneLoginViewModel extends BaseViewModel {
         RegExp(r'[^A-Z0-9]'),
         '',
       );
+
+  Future<void> prefetchReferralCode() async {
+    try {
+      final clip = await Clipboard.getData(Clipboard.kTextPlain);
+      final fromClip = parseInviteReferral(clip?.text);
+      if (fromClip != null && fromClip != sanitizedReferralCode) {
+        _applyReferral(fromClip);
+        return;
+      }
+    } catch (_) {}
+
+    if (sanitizedReferralCode.isNotEmpty) return;
+
+    final fromHint = parseInviteReferral(await _authService.fetchReferralHint());
+    if (fromHint != null) {
+      _applyReferral(fromHint);
+    }
+  }
+
+  void _applyReferral(String code) {
+    referralController.text = code;
+    unawaited(SessionService.rememberPendingReferral(code));
+    notifyListeners();
+  }
 
   String get primaryButtonLabel {
     switch (step) {
@@ -95,6 +134,7 @@ class PhoneLoginViewModel extends BaseViewModel {
       notifyListeners();
       return const PhoneLoginActionResult(kind: PhoneLoginResultKind.stay);
     }
+    unawaited(SessionService.rememberLastPhone(phoneNumber));
 
     if (step == PhoneLoginStep.phone) {
       return _checkPhone(phoneNumber);

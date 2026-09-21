@@ -250,61 +250,74 @@ class _EntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      decoration: BoxDecoration(
-        color: WinTheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: WinTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: WinGlass(
+        borderRadius: 12,
+        color: const Color(0x18FFFFFF),
+        borderColor: won
+            ? const Color(0x66EAB308)
+            : const Color(0x554ADE80),
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            (won ? WinTheme.gold : WinTheme.green).withValues(alpha: 0.22),
+            const Color(0x14FFFFFF),
+            (won ? WinTheme.gold : WinTheme.green).withValues(alpha: 0.12),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  '${WinTheme.lskLabel(sale.lsk)} - ${sale.number} - ${sale.count}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${WinTheme.lskLabel(sale.lsk)} - ${sale.number} - ${sale.count}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
-                ),
+                  Text(
+                    won ? 'WON' : 'Confirmed',
+                    style: TextStyle(
+                      color: won ? WinTheme.gold : WinTheme.green,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                won ? 'WON' : 'Confirmed',
-                style: TextStyle(
-                  color: won ? WinTheme.gold : WinTheme.green,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
-                ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '₹${WinTheme.rupee(sale.damount)}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    WinTheme.drawLabel(sale.timeSlot),
+                    style: const TextStyle(color: WinTheme.muted, fontSize: 12),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.done_all, color: Color(0xFF53BDEB), size: 16),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '₹${WinTheme.rupee(sale.damount)}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Text(
-                WinTheme.drawLabel(sale.timeSlot),
-                style: const TextStyle(color: WinTheme.muted, fontSize: 12),
-              ),
-              const SizedBox(width: 6),
-              const Icon(Icons.done_all, color: Color(0xFF53BDEB), size: 16),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
