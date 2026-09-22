@@ -126,6 +126,7 @@ class ResultChatMessage {
     required this.timeSlot,
     required this.message,
     required this.resultDate,
+    this.createdAt,
   });
 
   final String id;
@@ -133,6 +134,10 @@ class ResultChatMessage {
   final String timeSlot;
   final String message;
   final DateTime? resultDate;
+  final DateTime? createdAt;
+
+  /// When the result appeared in chat (publish time), not the draw date at midnight.
+  DateTime? get chatDate => createdAt ?? resultDate;
 
   factory ResultChatMessage.fromJson(Map<String, dynamic> json) {
     return ResultChatMessage(
@@ -140,8 +145,9 @@ class ResultChatMessage {
       customerId: json['customerId']?.toString() ?? '',
       timeSlot: json['timeSlot']?.toString() ?? '',
       message: json['message']?.toString() ?? '',
-      resultDate: DateTime.tryParse(
-        json['resultDate']?.toString() ?? json['createdAt']?.toString() ?? '',
+      resultDate: DateTime.tryParse(json['resultDate']?.toString() ?? ''),
+      createdAt: DateTime.tryParse(
+        json['createdAt']?.toString() ?? json['updatedAt']?.toString() ?? '',
       ),
     );
   }
@@ -239,7 +245,7 @@ class ConversationMessage {
         messageType: type,
         messageFrom: from,
         timeSlot: result.timeSlot,
-        date: result.resultDate,
+        date: result.chatDate,
         resultMessage: result,
       );
     }

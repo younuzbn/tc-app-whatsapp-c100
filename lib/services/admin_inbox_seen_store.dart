@@ -6,6 +6,7 @@ class AdminInboxSeenStore {
   static final AdminInboxSeenStore instance = AdminInboxSeenStore._();
 
   final Map<String, String> _entryStamps = {};
+  final Map<String, int> _seenCounts = {};
   final Set<String> _withdrawIds = {};
   bool _withdrawalsVisited = false;
 
@@ -19,6 +20,14 @@ class AdminInboxSeenStore {
     return _entryStamps[chat.customerId] != _entryStamp(chat);
   }
 
+  int unreadEntryCount(CustomerChatSummary chat) {
+    if (!isEntryUnread(chat)) return 0;
+    final seen = _seenCounts[chat.customerId] ?? 0;
+    final delta = chat.messageCount - seen;
+    if (delta > 0) return delta;
+    return 1;
+  }
+
   int unreadEntries(List<CustomerChatSummary> chats) {
     var count = 0;
     for (final chat in chats) {
@@ -29,6 +38,7 @@ class AdminInboxSeenStore {
 
   void markChatSeen(CustomerChatSummary chat) {
     _entryStamps[chat.customerId] = _entryStamp(chat);
+    _seenCounts[chat.customerId] = chat.messageCount;
   }
 
   int unreadWithdrawals(List<WithdrawRequestItem> items) {

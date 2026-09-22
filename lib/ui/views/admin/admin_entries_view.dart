@@ -121,6 +121,15 @@ class _AdminEntriesViewState extends State<AdminEntriesView> {
     );
     if (!mounted) return;
     await _load(silent: true);
+    CustomerChatSummary? updated;
+    for (final item in _chats) {
+      if (item.customerId == chat.customerId) {
+        updated = item;
+        break;
+      }
+    }
+    _seen.markChatSeen(updated ?? chat);
+    if (mounted) setState(() {});
   }
 
   @override
@@ -218,7 +227,7 @@ class _AdminEntriesViewState extends State<AdminEntriesView> {
                               ),
                               itemBuilder: (context, index) {
                                 final chat = _chats[index];
-                                final unseen = _seen.isEntryUnread(chat);
+                                final unseenCount = _seen.unreadEntryCount(chat);
                                 return ListTile(
                                   onTap: () => _openChat(chat),
                                   contentPadding: const EdgeInsets.symmetric(
@@ -268,15 +277,15 @@ class _AdminEntriesViewState extends State<AdminEntriesView> {
                                           fontSize: 11,
                                         ),
                                       ),
-                                      if (unseen && chat.messageCount > 0) ...[
+                                      if (unseenCount > 0) ...[
                                         const SizedBox(height: 4),
                                         CircleAvatar(
                                           radius: 10,
                                           backgroundColor: _green,
                                           child: Text(
-                                            chat.messageCount > 99
+                                            unseenCount > 99
                                                 ? '99+'
-                                                : '${chat.messageCount}',
+                                                : '$unseenCount',
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 9,

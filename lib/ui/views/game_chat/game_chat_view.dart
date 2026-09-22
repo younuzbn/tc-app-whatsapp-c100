@@ -28,10 +28,10 @@ class GameChatView extends StackedView<GameChatViewModel> {
   ) {
     final combinedMessages = <_ChatMessageItem>[
       ...viewModel.sales.map(
-        (sale) => _ChatMessageItem(date: sale.createdDate, sale: sale),
+        (sale) => _ChatMessageItem(date: sale.placedAt ?? sale.createdDate, sale: sale),
       ),
       ...viewModel.resultMessages.map(
-        (result) => _ChatMessageItem(date: result.resultDate, result: result),
+        (result) => _ChatMessageItem(date: result.chatDate, result: result),
       ),
       ...viewModel.winningMessages.map(
         (win) => _ChatMessageItem(
