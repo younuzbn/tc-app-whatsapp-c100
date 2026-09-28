@@ -18,6 +18,7 @@ class _AdminReferralCodesViewState extends State<AdminReferralCodesView> {
 
   final _service = const ReferralService();
   bool _loading = true;
+  bool _deleting = false;
   String? _error;
   List<AdminReferralCodeItem> _codes = [];
 
@@ -131,6 +132,60 @@ class _AdminReferralCodesViewState extends State<AdminReferralCodesView> {
     }
   }
 
+  Future<void> _deleteCode(AdminReferralCodeItem item) async {
+    if (_deleting) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: _surface,
+        title: const Text(
+          'Delete referral code?',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          'Delete ${item.code}? New users will no longer be able to join with this code. Users who already used it keep their referral link.',
+          style: const TextStyle(color: _muted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deleting = true);
+    try {
+      await _service.deleteCode(item.id);
+      if (!mounted) return;
+      setState(() {
+        _codes = _codes.where((code) => code.id != item.id).toList();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Deleted ${item.code}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -209,19 +264,35 @@ class _AdminReferralCodesViewState extends State<AdminReferralCodesView> {
                               ].join(' · '),
                               style: const TextStyle(color: _muted, fontSize: 12),
                             ),
-                            trailing: IconButton(
-                              onPressed: () async {
-                                await Clipboard.setData(
-                                  ClipboardData(text: item.code),
-                                );
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Code copied'),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  onPressed: () async {
+                                    await Clipboard.setData(
+                                      ClipboardData(text: item.code),
+                                    );
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Code copied'),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.copy, color: _green),
+                                  tooltip: 'Copy',
+                                ),
+                                IconButton(
+                                  onPressed: _deleting
+                                      ? null
+                                      : () => _deleteCode(item),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.redAccent,
                                   ),
-                                );
-                              },
-                              icon: const Icon(Icons.copy, color: _green),
+                                  tooltip: 'Delete',
+                                ),
+                              ],
                             ),
                           ),
                         );

@@ -42,6 +42,22 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
 
+    private val pickVideoLauncher =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            val result = pendingResult
+            pendingResult = null
+            if (result == null) return@registerForActivityResult
+            if (uri == null) {
+                result.success(null)
+                return@registerForActivityResult
+            }
+            try {
+                result.success(copyUriToCache(uri))
+            } catch (e: Exception) {
+                result.error("COPY_FAILED", e.message, null)
+            }
+        }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         startSessionWatchIfNeeded()
@@ -50,11 +66,19 @@ class MainActivity : FlutterFragmentActivity() {
                 when (call.method) {
                     "pickImage" -> {
                         if (pendingResult != null) {
-                            result.error("BUSY", "Image picker already open", null)
+                            result.error("BUSY", "Media picker already open", null)
                             return@setMethodCallHandler
                         }
                         pendingResult = result
                         pickImageLauncher.launch("image/*")
+                    }
+                    "pickVideo" -> {
+                        if (pendingResult != null) {
+                            result.error("BUSY", "Media picker already open", null)
+                            return@setMethodCallHandler
+                        }
+                        pendingResult = result
+                        pickVideoLauncher.launch("video/*")
                     }
                     "saveImage" -> {
                         val filename = call.argument<String>("filename") ?: "win-app-upi-qr.jpg"

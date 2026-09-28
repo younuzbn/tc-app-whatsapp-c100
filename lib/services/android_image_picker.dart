@@ -14,6 +14,13 @@ class AndroidImagePicker {
     return path;
   }
 
+  /// Returns local video file path, or null if user cancelled.
+  static Future<String?> pickVideo() async {
+    final path = await _channel.invokeMethod<String>('pickVideo');
+    if (path == null || path.isEmpty) return null;
+    return path;
+  }
+
   static Future<void> saveToGallery({
     required List<int> bytes,
     String filename = 'win-app-upi-qr.jpg',

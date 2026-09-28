@@ -9,6 +9,13 @@ class AdminInboxSeenStore {
   final Map<String, int> _seenCounts = {};
   final Set<String> _withdrawIds = {};
   bool _withdrawalsVisited = false;
+  DateTime? _complaintsSeenAt;
+
+  DateTime? get complaintsSeenAt => _complaintsSeenAt;
+
+  void markComplaintsSeen() {
+    _complaintsSeenAt = DateTime.now().toUtc();
+  }
 
   String _entryStamp(CustomerChatSummary chat) {
     final ms = chat.lastCreatedDate?.toUtc().millisecondsSinceEpoch ?? 0;

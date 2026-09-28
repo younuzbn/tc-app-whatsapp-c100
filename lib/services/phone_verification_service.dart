@@ -28,7 +28,7 @@ class PhoneVerificationService {
     required String phoneNumber,
     required void Function(String message) onFailed,
     required void Function() onCodeSent,
-    Future<void> Function()? onAutoVerified,
+    Future<void> Function(String? smsCode)? onAutoVerified,
   }) async {
     final auth = _auth;
     if (auth == null) {
@@ -44,7 +44,9 @@ class PhoneVerificationService {
         verificationCompleted: (credential) async {
           try {
             await auth.signInWithCredential(credential);
-            if (onAutoVerified != null) await onAutoVerified();
+            if (onAutoVerified != null) {
+              await onAutoVerified(credential.smsCode);
+            }
           } catch (error) {
             onFailed(_mapError(error));
           }

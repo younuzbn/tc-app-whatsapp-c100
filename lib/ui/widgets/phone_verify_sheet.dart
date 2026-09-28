@@ -47,6 +47,7 @@ class _PhoneVerifyDialogState extends State<_PhoneVerifyDialog> {
   bool _sending = false;
   bool _verifying = false;
   bool _codeSent = false;
+  bool _applyingOtp = false;
   String? _error;
   int _resendIn = 0;
   Timer? _timer;
@@ -113,8 +114,23 @@ class _PhoneVerifyDialogState extends State<_PhoneVerifyDialog> {
           _error = null;
         });
         _startResendTimer();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _otpFocus.first.requestFocus();
+        });
       },
-      onAutoVerified: _submitFirebaseToken,
+      onAutoVerified: (code) async {
+        if (!mounted) return;
+        setState(() {
+          _sending = false;
+          _codeSent = true;
+          _verifying = true;
+          _error = null;
+        });
+        if (code != null && code.trim().isNotEmpty) {
+          _applyOtp(code, submit: false);
+        }
+        await _submitFirebaseToken();
+      },
     );
   }
 
@@ -172,7 +188,33 @@ class _PhoneVerifyDialogState extends State<_PhoneVerifyDialog> {
     }
   }
 
+  void _applyOtp(String raw, {bool submit = true}) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return;
+    final code = digits.length > 6 ? digits.substring(0, 6) : digits;
+    _applyingOtp = true;
+    for (var i = 0; i < 6; i++) {
+      _otpControllers[i].value = TextEditingValue(
+        text: i < code.length ? code[i] : '',
+      );
+    }
+    _applyingOtp = false;
+    if (!mounted) return;
+    if (code.length == 6) {
+      FocusScope.of(context).unfocus();
+      if (submit) unawaited(_verifyTypedOtp());
+    } else {
+      _otpFocus[code.length.clamp(0, 5)].requestFocus();
+    }
+    setState(() {});
+  }
+
   void _onOtpChanged(int index, String value) {
+    if (_applyingOtp) return;
+    if (value.length > 1) {
+      _applyOtp(value);
+      return;
+    }
     if (value.length == 1 && index < 5) {
       _otpFocus[index + 1].requestFocus();
     } else if (value.isEmpty && index > 0) {
@@ -230,50 +272,62 @@ class _PhoneVerifyDialogState extends State<_PhoneVerifyDialog> {
                 ],
                 if (_codeSent) ...[
                   const SizedBox(height: 18),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: List.generate(6, (index) {
-                      return SizedBox(
-                        width: 38,
-                        height: 48,
-                        child: TextField(
-                          controller: _otpControllers[index],
-                          focusNode: _otpFocus[index],
-                          enabled: !busy,
-                          keyboardType: TextInputType.number,
-                          textAlign: TextAlign.center,
-                          maxLength: 1,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                          ),
-                          cursorColor: WinTheme.green,
-                          decoration: InputDecoration(
-                            counterText: '',
-                            filled: true,
-                            fillColor: const Color(0x33101820),
-                            contentPadding: EdgeInsets.zero,
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: Color(0x554ADE80),
+                  AutofillGroup(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(6, (index) {
+                        return SizedBox(
+                          width: 38,
+                          height: 48,
+                          child: TextField(
+                            controller: _otpControllers[index],
+                            focusNode: _otpFocus[index],
+                            enabled: !busy,
+                            autofillHints: const [AutofillHints.oneTimeCode],
+                            keyboardType: TextInputType.number,
+                            textInputAction: index == 5
+                                ? TextInputAction.done
+                                : TextInputAction.next,
+                            textAlign: TextAlign.center,
+                            maxLength: 6,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            cursorColor: WinTheme.green,
+                            decoration: InputDecoration(
+                              counterText: '',
+                              filled: true,
+                              fillColor: const Color(0x33101820),
+                              contentPadding: EdgeInsets.zero,
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Color(0x554ADE80),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: WinTheme.green,
+                                ),
                               ),
                             ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: WinTheme.green,
-                              ),
-                            ),
+                            onChanged: (value) => _onOtpChanged(index, value),
                           ),
-                          onChanged: (value) => _onOtpChanged(index, value),
-                        ),
-                      );
-                    }),
+                        );
+                      }),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'OTP will fill automatically if the SMS arrives on this phone.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: WinTheme.muted, fontSize: 12, height: 1.3),
                   ),
                 ],
                 const SizedBox(height: 18),

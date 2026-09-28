@@ -15,6 +15,7 @@ import '../../theme/win_theme.dart';
 import '../../widgets/phone_verify_sheet.dart';
 import '../auth/phone_login/phone_login_view.dart';
 import '../wallet/wallet_view.dart';
+import '../support/customer_support_chat_view.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key, this.embedded = false});
@@ -471,6 +472,18 @@ class _ProfileViewState extends State<ProfileView> {
                                 ? 'Change profile photo'
                                 : 'Add profile photo',
                             onTap: _pickProfileImage,
+                          ),
+                          const SizedBox(height: 10),
+                          _ActionTile(
+                            icon: Icons.support_agent_rounded,
+                            label: 'Customer Support & Complaints',
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const CustomerSupportChatView(),
+                                ),
+                              );
+                            },
                           ),
                           const SizedBox(height: 10),
                           _MobileNumberTile(

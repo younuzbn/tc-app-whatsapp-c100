@@ -5,7 +5,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../config/app_config.dart';
 
-const referShareAssetPath = 'assets/lalrefer.jpeg';
+const referShareAssetPath = 'assets/share_video.mp4';
 
 String referralInviteUrl(String code) {
   final formatted = code.trim().toUpperCase();
@@ -61,7 +61,7 @@ ${referralInviteUrl(formatted)}
 
 Future<void> shareWinAppInvite(String code) async {
   final data = await rootBundle.load(referShareAssetPath);
-  final file = File('${Directory.systemTemp.path}/win-app-refer.jpeg');
+  final file = File('${Directory.systemTemp.path}/win-app-refer.mp4');
   await file.writeAsBytes(
     data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
     flush: true,
@@ -70,7 +70,7 @@ Future<void> shareWinAppInvite(String code) async {
     ShareParams(
       text: referralShareText(code),
       files: [
-        XFile(file.path, mimeType: 'image/jpeg', name: 'win-app-refer.jpeg'),
+        XFile(file.path, mimeType: 'video/mp4', name: 'win-app-refer.mp4'),
       ],
     ),
   );

@@ -122,6 +122,10 @@ class ReferralService {
     return AdminReferralCodeItem.fromJson(data);
   }
 
+  Future<void> deleteCode(String id) async {
+    await _request('/api/admin/referral-codes/$id', method: 'DELETE');
+  }
+
   Future<List<ReferralTreeNode>> getTreeRoot() async {
     final body = await _request('/api/admin/referral-tree');
     final data = body['data'] as List<dynamic>? ?? const [];
@@ -158,6 +162,10 @@ class ReferralService {
               headers: _headers(token),
               body: jsonEncode(requestBody ?? {}),
             )
+            .timeout(const Duration(seconds: 10));
+      } else if (method == 'DELETE') {
+        response = await http
+            .delete(uri, headers: _headers(token))
             .timeout(const Duration(seconds: 10));
       } else {
         response = await http

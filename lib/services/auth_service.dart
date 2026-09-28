@@ -353,6 +353,90 @@ class AuthService {
     }
   }
 
+  Future<void> requestResetPasswordOtp({
+    required String countryCode,
+    required String phoneNumber,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/reset-password/request-otp'),
+            headers: jsonHeaders(),
+            body: jsonEncode({
+              'countryCode': countryCode,
+              'phoneNumber': phoneNumber,
+            }),
+          )
+          .timeout(apiTimeout);
+
+      final body = _decodeBody(response.body);
+      if (response.statusCode >= 400 || body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to send OTP for password reset');
+      }
+    } catch (error) {
+      if (isNetworkError(error)) throw mapNetworkError(error);
+      rethrow;
+    }
+  }
+
+  Future<void> verifyResetPasswordOtp({
+    required String countryCode,
+    required String phoneNumber,
+    required String otp,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/reset-password/verify-otp'),
+            headers: jsonHeaders(),
+            body: jsonEncode({
+              'countryCode': countryCode,
+              'phoneNumber': phoneNumber,
+              'otp': otp,
+            }),
+          )
+          .timeout(apiTimeout);
+
+      final body = _decodeBody(response.body);
+      if (response.statusCode >= 400 || body['success'] != true) {
+        throw Exception(body['message'] ?? 'Invalid or expired OTP');
+      }
+    } catch (error) {
+      if (isNetworkError(error)) throw mapNetworkError(error);
+      rethrow;
+    }
+  }
+
+  Future<void> confirmResetPassword({
+    required String countryCode,
+    required String phoneNumber,
+    required String otp,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/reset-password'),
+            headers: jsonHeaders(),
+            body: jsonEncode({
+              'countryCode': countryCode,
+              'phoneNumber': phoneNumber,
+              'otp': otp,
+              'newPassword': newPassword,
+            }),
+          )
+          .timeout(apiTimeout);
+
+      final body = _decodeBody(response.body);
+      if (response.statusCode >= 400 || body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to reset password');
+      }
+    } catch (error) {
+      if (isNetworkError(error)) throw mapNetworkError(error);
+      rethrow;
+    }
+  }
+
   MobileAuthResult _parseAuthResponse(
     http.Response response,
     String countryCode,

@@ -9,6 +9,7 @@ import '../../home/home_view.dart';
 import '../../../theme/win_theme.dart';
 import '../../update/update_gate.dart';
 import '../otp_verification/otp_verification_view.dart';
+import '../reset_password/reset_password_view.dart';
 import 'phone_login_viewmodel.dart';
 
 class _PhoneNumberInputFormatter extends TextInputFormatter {
@@ -194,24 +195,58 @@ class PhoneLoginView extends StackedView<PhoneLoginViewModel> {
                             ],
                             if (viewModel.step != PhoneLoginStep.phone) ...[
                               const SizedBox(height: 8),
-                              TextButton(
-                                onPressed: viewModel.isBusy
-                                    ? null
-                                    : () {
-                                        viewModel.step = PhoneLoginStep.phone;
-                                        viewModel.passwordController.clear();
-                                        viewModel.confirmPasswordController
-                                            .clear();
-                                        viewModel.errorMessage = null;
-                                        viewModel.notifyListeners();
-                                      },
-                                child: const Text(
-                                  'Change number',
-                                  style: TextStyle(
-                                    color: WinTheme.green,
-                                    fontWeight: FontWeight.w700,
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  TextButton(
+                                    onPressed: viewModel.isBusy
+                                        ? null
+                                        : () {
+                                            viewModel.step =
+                                                PhoneLoginStep.phone;
+                                            viewModel.passwordController
+                                                .clear();
+                                            viewModel.confirmPasswordController
+                                                .clear();
+                                            viewModel.errorMessage = null;
+                                            viewModel.notifyListeners();
+                                          },
+                                    child: const Text(
+                                      'Change number',
+                                      style: TextStyle(
+                                        color: WinTheme.green,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  if (viewModel.step ==
+                                      PhoneLoginStep.passwordLogin)
+                                    TextButton(
+                                      onPressed: viewModel.isBusy
+                                          ? null
+                                          : () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute<void>(
+                                                  builder: (_) =>
+                                                      ResetPasswordView(
+                                                    phoneNumber: viewModel
+                                                        .sanitizedPhoneNumber,
+                                                    countryCode:
+                                                        viewModel.countryCode,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                      child: const Text(
+                                        'Reset Password',
+                                        style: TextStyle(
+                                          color: WinTheme.green,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ],
                             if (viewModel.errorMessage != null) ...[
