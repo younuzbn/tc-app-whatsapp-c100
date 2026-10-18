@@ -10,6 +10,7 @@ import '../../../services/wallet_service.dart';
 import '../../theme/win_theme.dart';
 import '../../widgets/phone_verify_sheet.dart';
 import 'add_money_view.dart';
+import 'payment_dispute_sheet.dart';
 import 'withdraw_payment_processed_view.dart';
 import 'withdraw_request_view.dart';
 
@@ -345,7 +346,10 @@ class _WalletViewState extends State<WalletView> {
                               ),
                               const SizedBox(height: 12),
                               ..._topups.map(
-                                (item) => _DepositTile(item: item),
+                                (item) => _DepositTile(
+                                  item: item,
+                                  onReported: () => _load(spinner: false),
+                                ),
                               ),
                               const SizedBox(height: 24),
                             ],
@@ -818,14 +822,33 @@ class _TransactionTile extends StatelessWidget {
 }
 
 class _DepositTile extends StatelessWidget {
-  const _DepositTile({required this.item});
+  const _DepositTile({required this.item, required this.onReported});
 
   final WalletTopupMessage item;
+  final Future<void> Function() onReported;
 
   Color _statusColor() {
     if (item.isCredited) return WinTheme.green;
-    if (item.isRejected) return Colors.redAccent;
+    if (item.isRejected || item.isCancelled) return Colors.redAccent;
     return Colors.orangeAccent;
+  }
+
+  Future<void> _report(BuildContext context) async {
+    final sent = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PaymentDisputeSheet(
+          topupId: item.id,
+          amount: item.amount,
+          statusLabel: item.userStatus,
+        ),
+      ),
+    );
+    if (sent == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Dispute sent to admin')),
+      );
+      await onReported();
+    }
   }
 
   @override
@@ -833,36 +856,70 @@ class _DepositTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: _GlassCard(
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.add_card_outlined, color: WinTheme.green, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '₹${WinTheme.rupee(item.amount)}',
-                    style: const TextStyle(
-                      color: Colors.white,
+            Row(
+              children: [
+                const Icon(Icons.add_card_outlined, color: WinTheme.green, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '₹${WinTheme.rupee(item.amount)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Text(
+                        'Add money',
+                        style: TextStyle(color: WinTheme.muted, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  item.isCredited ? 'Successful' : item.userStatus,
+                  style: TextStyle(
+                    color: _statusColor(),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+            if (item.hasOpenDispute) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Dispute sent. Waiting for admin.',
+                style: TextStyle(color: WinTheme.yellow, fontSize: 12),
+              ),
+            ] else if (item.showDisputeAction) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => _report(context),
+                  icon: Icon(
+                    Icons.report_gmailerrorred_outlined,
+                    color: _statusColor(),
+                    size: 18,
+                  ),
+                  label: Text(
+                    item.disputeStatus == 'dismissed'
+                        ? 'Send dispute again'
+                        : 'Send dispute',
+                    style: TextStyle(
+                      color: _statusColor(),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const Text(
-                    'Add money',
-                    style: TextStyle(color: WinTheme.muted, fontSize: 12),
-                  ),
-                ],
+                ),
               ),
-            ),
-            Text(
-              item.isCredited ? 'Successful' : item.userStatus,
-              style: TextStyle(
-                color: _statusColor(),
-                fontWeight: FontWeight.w800,
-                fontSize: 12,
-              ),
-            ),
+            ],
           ],
         ),
       ),

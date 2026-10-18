@@ -55,6 +55,8 @@ class _AdminEntriesViewState extends State<AdminEntriesView> {
   }
 
   Future<void> _load({bool silent = false}) async {
+    await _seen.restore();
+    if (!mounted) return;
     if (!silent) {
       setState(() {
         _loading = true;

@@ -16,6 +16,7 @@ import '../../widgets/phone_verify_sheet.dart';
 import '../auth/phone_login/phone_login_view.dart';
 import '../wallet/wallet_view.dart';
 import '../support/customer_support_chat_view.dart';
+import 'people_you_invited_view.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key, this.embedded = false});
@@ -438,6 +439,20 @@ class _ProfileViewState extends State<ProfileView> {
                             ),
                           ),
                           const SizedBox(height: 14),
+                          _ActionTile(
+                            icon: Icons.group_outlined,
+                            label: 'People you invited',
+                            trailing: '${profile?.inviteCount ?? 0}',
+                            onTap: () async {
+                              await Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const PeopleYouInvitedView(),
+                                ),
+                              );
+                              await _load();
+                            },
+                          ),
+                          const SizedBox(height: 10),
                           _ActionTile(
                             icon: Icons.account_balance_wallet_rounded,
                             label: 'View Full Wallet & Transactions',

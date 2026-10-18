@@ -104,7 +104,7 @@ class _PaymentProcessingViewState extends State<PaymentProcessingView>
       builder: (context) => AlertDialog(
         title: const Text('Cancel Payment?'),
         content: const Text(
-          'Your payment is being processed. Are you sure you want to cancel?',
+          'Only leave if you have not paid. If Razorpay already took the money, it will still be added to your wallet.',
         ),
         actions: [
           TextButton(

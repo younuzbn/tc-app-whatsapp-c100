@@ -5,12 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../services/admin_inbox_seen_store.dart';
+import '../../../services/notification_service.dart';
+import '../../../services/os_app_badge_service.dart';
 import '../../../services/sales_service.dart';
 import '../../../services/session_service.dart';
 import '../../../services/support_service.dart';
 import '../../../services/wallet_service.dart';
 import '../../theme/win_theme.dart';
 import '../auth/phone_login/phone_login_view.dart';
+import '../notifications/notifications_view.dart';
 import 'admin_account_summary_view.dart';
 import 'admin_entries_view.dart';
 import 'admin_game_chat_options_view.dart';
@@ -18,6 +21,11 @@ import 'admin_referral_codes_view.dart';
 import 'admin_referral_tree_view.dart';
 import 'admin_users_view.dart';
 import 'admin_complaints_view.dart';
+import 'admin_payment_disputes_view.dart';
+import 'admin_edit_price_chart_view.dart';
+import 'admin_edit_refer_earn_view.dart';
+import 'admin_share_invite_view.dart';
+import 'admin_successful_payments_view.dart';
 import 'admin_withdraw_requests_view.dart';
 
 class AdminHomeView extends StatefulWidget {
@@ -43,6 +51,7 @@ class _AdminHomeViewState extends State<AdminHomeView> {
   final _salesService = const SalesService();
   final _walletService = const WalletService();
   final _supportService = const SupportService();
+  final _notificationService = const NotificationService();
   final _seen = AdminInboxSeenStore.instance;
   Timer? _pollTimer;
   bool _loading = true;
@@ -50,6 +59,8 @@ class _AdminHomeViewState extends State<AdminHomeView> {
   List<CustomerChatSummary> _customerChats = [];
   List<WithdrawRequestItem> _withdrawals = [];
   int _complaintUnread = 0;
+  int _disputeOpen = 0;
+  int _unreadAlerts = 0;
 
   @override
   void initState() {
@@ -73,6 +84,8 @@ class _AdminHomeViewState extends State<AdminHomeView> {
   }
 
   Future<void> _load({bool silent = false}) async {
+    await _seen.restore();
+    if (!mounted) return;
     if (!silent) {
       setState(() {
         _loading = true;
@@ -87,17 +100,45 @@ class _AdminHomeViewState extends State<AdminHomeView> {
           status: 'processing',
         );
       } catch (_) {}
-      final complaintUnread = await _supportService.fetchAdminUnreadCount(
-        since: _seen.complaintsSeenAt,
-      );
+      var complaintUnread = 0;
+      var disputeOpen = 0;
+      var unreadAlerts = 0;
+      try {
+        final counts = await Future.wait([
+          _supportService.fetchAdminUnreadCount(since: _seen.complaintsSeenAt),
+          _walletService.fetchOpenDisputeCount(),
+          _notificationService.unreadCount(),
+        ]);
+        complaintUnread = counts[0];
+        disputeOpen = counts[1];
+        unreadAlerts = counts[2];
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _customerChats = chats;
         _withdrawals = withdrawals;
         _complaintUnread = complaintUnread;
+        _disputeOpen = disputeOpen;
+        _unreadAlerts = unreadAlerts;
         _loading = false;
         _error = null;
       });
+      final badgeCount = _seen.unreadEntries(chats) +
+          _seen.unreadWithdrawals(withdrawals) +
+          complaintUnread +
+          disputeOpen +
+          unreadAlerts;
+      unawaited(
+        OsAppBadgeService.instance.applyCount(
+          badgeCount,
+          title: 'Win App Admin',
+          text: badgeCount <= 0
+              ? ''
+              : badgeCount == 1
+                  ? '1 new admin alert'
+                  : '$badgeCount new admin alerts',
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -130,6 +171,17 @@ class _AdminHomeViewState extends State<AdminHomeView> {
     await _load();
     _seen.markWithdrawalsSeen(_withdrawals);
     if (mounted) setState(() {});
+  }
+
+  Future<void> _openAlerts() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const NotificationsView(),
+      ),
+    );
+    await NotificationsView.settle();
+    if (!mounted) return;
+    await _load(silent: true);
   }
 
   Future<void> _openComplaints() async {
@@ -168,6 +220,45 @@ class _AdminHomeViewState extends State<AdminHomeView> {
         onTap: _openEntries,
       ),
       _AdminChatItem(
+        title: 'Share invite',
+        subtitle: 'Edit share text, photo, or video',
+        accent: const Color(0xFF0EA5E9),
+        leadingIcon: Icons.share_rounded,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AdminShareInviteView(),
+            ),
+          );
+        },
+      ),
+      _AdminChatItem(
+        title: 'Edit Refer & Earn page',
+        subtitle: 'Change images, texts, icons, and button labels',
+        accent: const Color(0xFF25D366),
+        leadingIcon: Icons.card_giftcard_rounded,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AdminEditReferEarnView(),
+            ),
+          );
+        },
+      ),
+      _AdminChatItem(
+        title: 'Edit Price Chart',
+        subtitle: 'Change prizes, labels, and section texts',
+        accent: const Color(0xFFEAB308),
+        leadingIcon: Icons.emoji_events_rounded,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AdminEditPriceChartView(),
+            ),
+          );
+        },
+      ),
+      _AdminChatItem(
         title: 'Referral codes',
         subtitle: 'Create and manage invite codes',
         accent: const Color(0xFF7C3AED),
@@ -197,6 +288,36 @@ class _AdminHomeViewState extends State<AdminHomeView> {
         trailingText: _badge(_complaintUnread),
         badgeColor: const Color(0xFF25D366),
         onTap: _openComplaints,
+      ),
+      _AdminChatItem(
+        title: 'Payment disputes',
+        subtitle: 'New dispute alerts · add to wallet or cancel',
+        accent: const Color(0xFFDC2626),
+        leadingIcon: Icons.report_gmailerrorred_rounded,
+        trailingText: _badge(_disputeOpen),
+        badgeColor: const Color(0xFFF87171),
+        onTap: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AdminPaymentDisputesView(),
+            ),
+          );
+          if (!mounted) return;
+          await _load(silent: true);
+        },
+      ),
+      _AdminChatItem(
+        title: 'Successful payments',
+        subtitle: 'Credited add-money list, newest first',
+        accent: const Color(0xFF059669),
+        leadingIcon: Icons.payments_rounded,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AdminSuccessfulPaymentsView(),
+            ),
+          );
+        },
       ),
       _AdminChatItem(
         title: 'Users',
@@ -272,9 +393,13 @@ class _AdminHomeViewState extends State<AdminHomeView> {
             SafeArea(
               child: Column(
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 10, 8, 14),
-                    child: _AdminHeader(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 8, 14),
+                    child: _AdminHeader(
+                      unreadAlerts: _unreadAlerts,
+                      onAlerts: _openAlerts,
+                      onLogout: _logout,
+                    ),
                   ),
                   Expanded(
                     child: _loading
@@ -307,26 +432,6 @@ class _AdminHomeViewState extends State<AdminHomeView> {
                 ],
               ),
             ),
-            Positioned(
-              top: MediaQuery.paddingOf(context).top + 8,
-              right: 8,
-              child: PopupMenuButton<String>(
-                color: const Color(0xFF0F2744),
-                icon: const Icon(Icons.more_vert, color: Colors.white),
-                onSelected: (value) {
-                  if (value == 'logout') _logout();
-                },
-                itemBuilder: (context) => const [
-                  PopupMenuItem<String>(
-                    value: 'logout',
-                    child: Text(
-                      'Log out',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
@@ -335,7 +440,15 @@ class _AdminHomeViewState extends State<AdminHomeView> {
 }
 
 class _AdminHeader extends StatelessWidget {
-  const _AdminHeader();
+  const _AdminHeader({
+    required this.unreadAlerts,
+    required this.onAlerts,
+    required this.onLogout,
+  });
+
+  final int unreadAlerts;
+  final VoidCallback onAlerts;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -381,9 +494,9 @@ class _AdminHeader extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 36),
+        const SizedBox(width: 8),
         Padding(
-          padding: const EdgeInsets.only(top: 4, right: 36),
+          padding: const EdgeInsets.only(top: 4),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(22),
             child: BackdropFilter(
@@ -432,6 +545,34 @@ class _AdminHeader extends StatelessWidget {
               ),
             ),
           ),
+        ),
+        IconButton(
+          onPressed: onAlerts,
+          visualDensity: VisualDensity.compact,
+          icon: Badge(
+            isLabelVisible: unreadAlerts > 0,
+            label: Text(unreadAlerts > 99 ? '99+' : '$unreadAlerts'),
+            child: const Icon(
+              Icons.notifications_outlined,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        PopupMenuButton<String>(
+          color: const Color(0xFF0F2744),
+          icon: const Icon(Icons.more_vert, color: Colors.white),
+          onSelected: (value) {
+            if (value == 'logout') onLogout();
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem<String>(
+              value: 'logout',
+              child: Text(
+                'Log out',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
         ),
       ],
     );

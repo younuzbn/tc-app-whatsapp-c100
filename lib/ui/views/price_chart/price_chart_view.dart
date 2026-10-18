@@ -1,31 +1,46 @@
 import 'package:flutter/material.dart';
 
+import '../../../services/page_content_defaults.dart';
 import '../../theme/win_theme.dart';
+import '../../widgets/page_content_edit.dart';
 
 class PriceChartView extends StatelessWidget {
   const PriceChartView({
     super.key,
     this.embedded = false,
+    this.editable = false,
   });
 
   final bool embedded;
+  final bool editable;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: WinTheme.bg,
-      appBar: embedded
-          ? null
-          : AppBar(
-              backgroundColor: WinTheme.bg,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              title: const Text(
-                'സമ്മാന ചാർട്ട്',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
-      body: const _PriceChartBody(),
+    return PageContentHost(
+      pageKey: kPriceChartPageKey,
+      editing: editable,
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: WinTheme.bg,
+          appBar: embedded
+              ? null
+              : AppBar(
+                  backgroundColor: WinTheme.bg,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  title: const PageText(
+                    'pageTitle',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+          body: Column(
+            children: [
+              if (editable) const PageEditBanner(),
+              const Expanded(child: _PriceChartBody()),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -47,24 +62,18 @@ class _PriceChartBody extends StatelessWidget {
             children: [
               _AbcTicketsCard(),
               SizedBox(height: 10),
-              _BoxPair(
-                leftAmount: '₹3,300',
-                rightAmount: '₹800',
-              ),
+              _BoxPair(leftField: 'pair1Left', rightField: 'pair1Right'),
               SizedBox(height: 12),
               _SectionTitle(
-                title: '2 അക്കങ്ങൾ ആവർത്തിച്ചാൽ',
-                subtitle: '(ഉദാ: 556, 667)',
+                titleField: 'repeat2Title',
+                subtitleField: 'repeat2Subtitle',
               ),
               SizedBox(height: 8),
-              _BoxPair(
-                leftAmount: '₹3,800',
-                rightAmount: '₹800',
-              ),
+              _BoxPair(leftField: 'pair2Left', rightField: 'pair2Right'),
               SizedBox(height: 12),
               _SectionTitle(
-                title: '3 അക്കങ്ങളും ഒന്നായാൽ',
-                subtitle: '(ഉദാ: 666, 444, 777)',
+                titleField: 'tripleTitle',
+                subtitleField: 'tripleSubtitle',
               ),
               SizedBox(height: 8),
               _TripleBanner(),
@@ -92,10 +101,10 @@ class _Header extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('🏆', style: TextStyle(fontSize: 18)),
+              PageText('headerEmoji', style: TextStyle(fontSize: 18)),
               SizedBox(width: 6),
-              Text(
-                'സമ്മാന ചാർട്ട്',
+              PageText(
+                'headerTitle',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 20,
@@ -106,8 +115,8 @@ class _Header extends StatelessWidget {
             ],
           ),
           SizedBox(height: 4),
-          Text(
-            'നിങ്ങളുടെ വിജയ വിവരങ്ങൾ ഇവിടെ കാണാം',
+          PageText(
+            'headerSubtitle',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: WinTheme.muted,
@@ -124,13 +133,13 @@ class _Header extends StatelessWidget {
 class _SuperTicketSection extends StatelessWidget {
   const _SuperTicketSection();
 
-  static const _prizes = <(String, String, String?)>[
-    ('ഒന്നാം സമ്മാനം', '₹5,000', null),
-    ('രണ്ടാം സമ്മാനം', '₹500', null),
-    ('മൂന്നാം സമ്മാനം', '₹250', null),
-    ('നാലാം സമ്മാനം', '₹100', null),
-    ('അഞ്ചാം സമ്മാനം', '₹50', null),
-    ('ആറാം സമ്മാനം', '₹30', '(30 വ്യത്യസ്ത നമ്പറുകൾക്ക്)'),
+  static const _prizes = <(String, String, String)>[
+    ('prize1Title', 'prize1Amount', 'prize1Note'),
+    ('prize2Title', 'prize2Amount', 'prize2Note'),
+    ('prize3Title', 'prize3Amount', 'prize3Note'),
+    ('prize4Title', 'prize4Amount', 'prize4Note'),
+    ('prize5Title', 'prize5Amount', 'prize5Note'),
+    ('prize6Title', 'prize6Amount', 'prize6Note'),
   ];
 
   @override
@@ -139,8 +148,8 @@ class _SuperTicketSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
       child: Column(
         children: [
-          const Text(
-            '3 അക്ക സൂപ്പർ ടിക്കറ്റ്',
+          const PageText(
+            'superTitle',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white,
@@ -155,8 +164,8 @@ class _SuperTicketSection extends StatelessWidget {
               color: WinTheme.green,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Text(
-              'ടിക്കറ്റ് വില: ₹10',
+            child: const PageText(
+              'ticketPrice',
               style: TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.w800,
@@ -167,9 +176,9 @@ class _SuperTicketSection extends StatelessWidget {
           const SizedBox(height: 10),
           for (var i = 0; i < _prizes.length; i++) ...[
             _PrizeRow(
-              title: _prizes[i].$1,
-              amount: _prizes[i].$2,
-              note: _prizes[i].$3,
+              titleField: _prizes[i].$1,
+              amountField: _prizes[i].$2,
+              noteField: _prizes[i].$3,
               featured: i == 0,
             ),
             const SizedBox(height: 6),
@@ -182,15 +191,15 @@ class _SuperTicketSection extends StatelessWidget {
 
 class _PrizeRow extends StatelessWidget {
   const _PrizeRow({
-    required this.title,
-    required this.amount,
-    this.note,
+    required this.titleField,
+    required this.amountField,
+    required this.noteField,
     this.featured = false,
   });
 
-  final String title;
-  final String amount;
-  final String? note;
+  final String titleField;
+  final String amountField;
+  final String noteField;
   final bool featured;
 
   @override
@@ -214,27 +223,28 @@ class _PrizeRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                PageText(
+                  titleField,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
                 ),
-                if (note != null)
-                  Text(
-                    note!,
-                    style: const TextStyle(
-                      color: WinTheme.muted,
-                      fontSize: 10,
-                    ),
+                PageText(
+                  noteField,
+                  hideIfEmpty: true,
+                  placeholder: 'Tap to add note',
+                  style: const TextStyle(
+                    color: WinTheme.muted,
+                    fontSize: 10,
                   ),
+                ),
               ],
             ),
           ),
-          Text(
-            amount,
+          PageText(
+            amountField,
             style: TextStyle(
               color: featured ? WinTheme.gold : WinTheme.green,
               fontWeight: FontWeight.w800,
@@ -259,53 +269,59 @@ class _AbcTicketsCard extends StatelessWidget {
         border: Border.all(color: WinTheme.border),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(
+      child: const Column(
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: const BoxDecoration(
-              color: WinTheme.greenSoft,
-              border: Border(
-                top: BorderSide(color: WinTheme.green, width: 3),
+          ColoredBox(
+            color: WinTheme.greenSoft,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: WinTheme.green, width: 3),
+                ),
+              ),
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 10),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: PageText(
+                        'abcTitle',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    PageText(
+                      'abcSubtitle',
+                      style: TextStyle(
+                        color: WinTheme.green,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            child: const Column(
-              children: [
-                Text(
-                  'എ, ബി, സി (A, B, C)',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  'ടിക്കറ്റുകൾ',
-                  style: TextStyle(
-                    color: WinTheme.green,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.all(10),
             child: Column(
               children: [
                 _AbcTicketRow(
-                  title: 'സിംഗിൾ ടിക്കറ്റ് (A, B, C)',
-                  price: 'ടിക്കറ്റ് വില: ₹12',
-                  prize: '₹100',
+                  titleField: 'singleTitle',
+                  priceField: 'singlePrice',
+                  prizeField: 'singlePrize',
                 ),
                 SizedBox(height: 8),
                 _AbcTicketRow(
-                  title: 'ഡബിൾ ടിക്കറ്റ് (AB, BC, AC)',
-                  price: 'ടിക്കറ്റ് വില: ₹10',
-                  prize: '₹700',
+                  titleField: 'doubleTitle',
+                  priceField: 'doublePrice',
+                  prizeField: 'doublePrize',
                 ),
               ],
             ),
@@ -318,14 +334,14 @@ class _AbcTicketsCard extends StatelessWidget {
 
 class _AbcTicketRow extends StatelessWidget {
   const _AbcTicketRow({
-    required this.title,
-    required this.price,
-    required this.prize,
+    required this.titleField,
+    required this.priceField,
+    required this.prizeField,
   });
 
-  final String title;
-  final String price;
-  final String prize;
+  final String titleField;
+  final String priceField;
+  final String prizeField;
 
   @override
   Widget build(BuildContext context) {
@@ -341,8 +357,8 @@ class _AbcTicketRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                PageText(
+                  titleField,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
@@ -350,8 +366,8 @@ class _AbcTicketRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  price,
+                PageText(
+                  priceField,
                   style: const TextStyle(color: WinTheme.muted, fontSize: 11),
                 ),
               ],
@@ -360,13 +376,13 @@ class _AbcTicketRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text(
-                'സമ്മാനം',
+              const PageText(
+                'prizeWord',
                 style: TextStyle(color: WinTheme.muted, fontSize: 10),
               ),
               const SizedBox(height: 2),
-              Text(
-                prize,
+              PageText(
+                prizeField,
                 style: const TextStyle(
                   color: WinTheme.green,
                   fontWeight: FontWeight.w800,
@@ -382,17 +398,17 @@ class _AbcTicketRow extends StatelessWidget {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, required this.subtitle});
+  const _SectionTitle({required this.titleField, required this.subtitleField});
 
-  final String title;
-  final String subtitle;
+  final String titleField;
+  final String subtitleField;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(
-          title,
+        PageText(
+          titleField,
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: Colors.white,
@@ -401,8 +417,8 @@ class _SectionTitle extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          subtitle,
+        PageText(
+          subtitleField,
           textAlign: TextAlign.center,
           style: const TextStyle(color: WinTheme.muted, fontSize: 11),
         ),
@@ -412,21 +428,24 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _BoxPair extends StatelessWidget {
-  const _BoxPair({required this.leftAmount, required this.rightAmount});
+  const _BoxPair({required this.leftField, required this.rightField});
 
-  final String leftAmount;
-  final String rightAmount;
+  final String leftField;
+  final String rightField;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          child: _BoxCard(label: 'നേരിട്ട് വന്നാൽ', amount: leftAmount),
+          child: _BoxCard(labelField: 'boxDirectLabel', amountField: leftField),
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: _BoxCard(label: 'മാറി വന്നാൽ (ബോക്സ്)', amount: rightAmount),
+          child: _BoxCard(
+            labelField: 'boxChangedLabel',
+            amountField: rightField,
+          ),
         ),
       ],
     );
@@ -434,10 +453,10 @@ class _BoxPair extends StatelessWidget {
 }
 
 class _BoxCard extends StatelessWidget {
-  const _BoxCard({required this.label, required this.amount});
+  const _BoxCard({required this.labelField, required this.amountField});
 
-  final String label;
-  final String amount;
+  final String labelField;
+  final String amountField;
 
   @override
   Widget build(BuildContext context) {
@@ -450,8 +469,8 @@ class _BoxCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(
-            label,
+          PageText(
+            labelField,
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -460,8 +479,8 @@ class _BoxCard extends StatelessWidget {
           const SizedBox(height: 6),
           FittedBox(
             fit: BoxFit.scaleDown,
-            child: Text(
-              amount,
+            child: PageText(
+              amountField,
               style: const TextStyle(
                 color: WinTheme.green,
                 fontSize: 20,
@@ -490,8 +509,8 @@ class _TripleBanner extends StatelessWidget {
       child: const Row(
         children: [
           Expanded(
-            child: Text(
-              'ഒന്നാം സമ്മാനം',
+            child: PageText(
+              'triplePrizeTitle',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
@@ -499,26 +518,20 @@ class _TripleBanner extends StatelessWidget {
               ),
             ),
           ),
-          Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: '₹7,000',
-                  style: TextStyle(
-                    color: WinTheme.gold,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                  ),
-                ),
-                TextSpan(
-                  text: ' (box)',
-                  style: TextStyle(
-                    color: WinTheme.gold,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
+          PageText(
+            'tripleAmount',
+            style: TextStyle(
+              color: WinTheme.gold,
+              fontWeight: FontWeight.w800,
+              fontSize: 20,
+            ),
+          ),
+          PageText(
+            'tripleSuffix',
+            style: TextStyle(
+              color: WinTheme.gold,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
             ),
           ),
         ],
@@ -559,8 +572,8 @@ class _MultiPrizeNote extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'ഒന്നിലധികം സമ്മാനങ്ങൾ ലഭിച്ചാൽ:',
+                PageText(
+                  'noteTitle',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
@@ -568,8 +581,8 @@ class _MultiPrizeNote extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 4),
-                Text(
-                  'ഒരേ നമ്പർ തന്നെ പല സമ്മാനങ്ങൾക്ക് അർഹമായാൽ, എല്ലാ സമ്മാനത്തുകയും ഒരുമിച്ച് ലഭിക്കുന്നതാണ്.',
+                PageText(
+                  'noteBody',
                   style: TextStyle(
                     color: WinTheme.muted,
                     height: 1.3,
@@ -577,8 +590,8 @@ class _MultiPrizeNote extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 4),
-                Text(
-                  '(ഉദാഹരണത്തിന്: 123 എന്ന നമ്പറിന് ഒന്നാമത്തെയും രണ്ടാമത്തെയും സമ്മാനം ലഭിച്ചാൽ ₹5000 + ₹500 = ₹5500 ലഭിക്കും).',
+                PageText(
+                  'noteExample',
                   style: TextStyle(
                     color: WinTheme.muted,
                     height: 1.3,

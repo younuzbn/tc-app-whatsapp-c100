@@ -83,13 +83,20 @@ class NotificationService {
     }
   }
 
-  Future<int> unreadCount() async {
+  Future<int> unreadCount({List<String>? types}) async {
     final token = SessionService.authToken;
     if (token == null || token.isEmpty) return 0;
     try {
+      final uri = Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/mobile/notifications/unread',
+      ).replace(
+        queryParameters: types == null || types.isEmpty
+            ? null
+            : {'types': types.join(',')},
+      );
       final response = await http
           .get(
-            Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/notifications/unread'),
+            uri,
             headers: _headers(token),
           )
           .timeout(const Duration(seconds: 8));

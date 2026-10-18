@@ -5,6 +5,9 @@ import 'package:stacked/stacked.dart';
 import '../../../services/admin_service.dart';
 import '../../../services/game_schedule.dart';
 import '../../../services/notification_service.dart';
+import '../../../services/os_app_badge_service.dart';
+import '../../../services/page_content_defaults.dart';
+import '../../../services/page_content_service.dart';
 import '../../../services/result_service.dart';
 import '../../../services/session_service.dart';
 import '../../../services/wallet_balance_store.dart';
@@ -67,6 +70,8 @@ class HomeViewModel extends BaseViewModel {
       refreshHome();
     } else if (tab == HomeTab.wallet) {
       refreshWallet();
+    } else if (tab == HomeTab.refer) {
+      unawaited(PageContentService.instance.refresh(kReferEarnPageKey));
     }
   }
 
@@ -94,7 +99,10 @@ class HomeViewModel extends BaseViewModel {
     }
     try {
       final result = await _notificationService.list();
-      _unreadNotifications = result.unread;
+      _unreadNotifications = SessionService.notificationBadgeCount(
+        items: result.items.map((item) => (id: item.id, read: item.read)),
+        serverUnread: result.unread,
+      );
       _unreadDrawAlerts = result.items
           .where(
             (item) =>
@@ -114,9 +122,12 @@ class HomeViewModel extends BaseViewModel {
           }).entries,
         );
     } catch (_) {
-      _unreadNotifications = await _notificationService.unreadCount();
+      if (!SessionService.notificationPageOpened) {
+        _unreadNotifications = await _notificationService.unreadCount();
+      }
     }
     notifyListeners();
+    unawaited(OsAppBadgeService.instance.refresh());
   }
 
   int drawUnreadCount(GameChatData data) =>

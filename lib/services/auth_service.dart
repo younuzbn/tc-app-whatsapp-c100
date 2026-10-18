@@ -1,8 +1,10 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
+import 'device_id_service.dart';
 import 'api_http.dart';
 import 'session_service.dart';
 
@@ -145,6 +147,7 @@ class AuthService {
               'phoneNumber': phoneNumber,
               'password': password,
               'referralCode': referralCode,
+              'deviceId': await DeviceIdService.getId(),
             }),
           )
           .timeout(apiTimeout);
@@ -184,6 +187,29 @@ class AuthService {
   Future<String?> fetchMyReferralCode() async {
     final profile = await fetchProfile();
     return profile?.referralCode ?? SessionService.referralCode;
+  }
+
+  Future<void> refreshSession() async {
+    final token = SessionService.authToken;
+    if (token == null || token.isEmpty) return;
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/refresh-session'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 8));
+      final body = _decodeBody(response.body);
+      if (response.statusCode >= 400 || body['success'] != true) return;
+      final data = body['data'] as Map<String, dynamic>? ?? {};
+      final next = data['token']?.toString() ?? '';
+      if (next.isNotEmpty) SessionService.replaceToken(next);
+    } catch (_) {
+      // Keep the saved session if the network is down.
+    }
   }
 
   Future<MobileProfile?> fetchProfile() async {
@@ -276,7 +302,15 @@ class AuthService {
   }
 
   Future<void> confirmPhoneVerification(String idToken) async {
+    if (SessionService.authToken == null || SessionService.authToken!.isEmpty) {
+      debugPrint('[PhoneVerify] session missing before confirm, restoring');
+      await SessionService.restore();
+    }
     final token = SessionService.authToken;
+    debugPrint(
+      '[PhoneVerify] session present=${token != null && token.isNotEmpty} '
+      'sessionLen=${token?.length ?? 0} firebaseTokenLen=${idToken.length}',
+    );
     if (token == null || token.isEmpty) {
       throw Exception('Login required');
     }
@@ -288,15 +322,22 @@ class AuthService {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token',
             },
-            body: jsonEncode({'idToken': idToken}),
+            body: jsonEncode({
+              'idToken': idToken,
+              'deviceId': await DeviceIdService.getId(),
+            }),
           )
           .timeout(apiTimeout);
+      debugPrint(
+        '[PhoneVerify] verify-phone status=${response.statusCode} body=${response.body}',
+      );
       final body = _decodeBody(response.body);
       if (response.statusCode >= 400 || body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to verify mobile number');
       }
       SessionService.markPhoneVerified();
     } catch (error) {
+      debugPrint('[PhoneVerify] verify-phone failed: $error');
       if (isNetworkError(error)) throw mapNetworkError(error);
       rethrow;
     }

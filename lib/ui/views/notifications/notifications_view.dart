@@ -1,10 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../services/notification_service.dart';
+import '../../../services/os_app_badge_service.dart';
+import '../../../services/session_service.dart';
 import '../../theme/win_theme.dart';
+import '../admin/admin_payment_disputes_view.dart';
+import '../wallet/wallet_view.dart';
 
 class NotificationsView extends StatefulWidget {
   const NotificationsView({super.key});
+
+  static Future<void>? _loaded;
+
+  static Future<void> settle() async {
+    try {
+      await _loaded;
+    } catch (_) {}
+  }
 
   @override
   State<NotificationsView> createState() => _NotificationsViewState();
@@ -22,7 +36,7 @@ class _NotificationsViewState extends State<NotificationsView> {
   @override
   void initState() {
     super.initState();
-    _load();
+    NotificationsView._loaded = _load();
   }
 
   Future<void> _load() async {
@@ -32,12 +46,16 @@ class _NotificationsViewState extends State<NotificationsView> {
     });
     try {
       final result = await _service.list();
+      SessionService.acknowledgeNotifications(
+        result.items.map((item) => item.id),
+      );
       if (!mounted) return;
       setState(() {
         _items = result.items;
         _unread = result.unread;
         _loading = false;
       });
+      unawaited(OsAppBadgeService.instance.refresh());
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -52,6 +70,27 @@ class _NotificationsViewState extends State<NotificationsView> {
     await _load();
   }
 
+  Future<void> _openItem(AppNotification item) async {
+    await _service.markRead(item.id);
+    if (!mounted) return;
+    if (item.type == 'payment_dispute' && SessionService.isAdmin) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => const AdminPaymentDisputesView(),
+        ),
+      );
+    } else if (item.type == 'dispute_credited' ||
+        item.type == 'dispute_cancelled' ||
+        item.type == 'withdraw_success') {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => const WalletView(embedded: false),
+        ),
+      );
+    }
+    if (mounted) await _load();
+  }
+
   IconData _iconFor(String type) {
     switch (type) {
       case 'win':
@@ -64,6 +103,16 @@ class _NotificationsViewState extends State<NotificationsView> {
         return Icons.card_giftcard_rounded;
       case 'draw_live':
         return Icons.sports_esports_rounded;
+      case 'support_reply':
+        return Icons.support_agent_rounded;
+      case 'payment_dispute':
+        return Icons.report_gmailerrorred_rounded;
+      case 'dispute_credited':
+        return Icons.account_balance_wallet_rounded;
+      case 'dispute_cancelled':
+        return Icons.cancel_outlined;
+      case 'withdraw_success':
+        return Icons.payments_rounded;
       default:
         return Icons.notifications_rounded;
     }
@@ -75,6 +124,14 @@ class _NotificationsViewState extends State<NotificationsView> {
         return WinTheme.gold;
       case 'referral_reward':
         return WinTheme.blue;
+      case 'payment_dispute':
+        return const Color(0xFFF87171);
+      case 'dispute_credited':
+        return WinTheme.green;
+      case 'dispute_cancelled':
+        return Colors.orangeAccent;
+      case 'withdraw_success':
+        return WinTheme.green;
       default:
         return WinTheme.green;
     }
@@ -218,7 +275,9 @@ class _NotificationsViewState extends State<NotificationsView> {
                                   final color = _colorFor(item.type);
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 10),
-                                    child: WinGlass(
+                                    child: GestureDetector(
+                                      onTap: () => _openItem(item),
+                                      child: WinGlass(
                                       borderRadius: 16,
                                       color: const Color(0x18FFFFFF),
                                       borderColor: item.read
@@ -316,6 +375,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                                           ],
                                         ),
                                       ),
+                                    ),
                                     ),
                                   );
                                 }),

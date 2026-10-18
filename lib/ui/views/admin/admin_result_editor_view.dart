@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../services/android_image_picker.dart';
+import '../../../services/result_ocr_parser.dart';
 import '../../../services/result_service.dart';
 import '../home/game_chat_data.dart';
 
@@ -25,6 +27,7 @@ class _AdminResultEditorViewState extends State<AdminResultEditorView> {
   String? _resultId;
   bool _loading = false;
   bool _saving = false;
+  bool _scanning = false;
   String? _message;
 
   static const List<String> _topFields = <String>[
@@ -118,6 +121,38 @@ class _AdminResultEditorViewState extends State<AdminResultEditorView> {
     }
   }
 
+  Future<void> _fillFromScreenshot() async {
+    if (_scanning || _saving) return;
+    setState(() {
+      _scanning = true;
+      _message = null;
+    });
+    try {
+      final path = await AndroidImagePicker.pickImage();
+      if (path == null) return;
+      final raw = await AndroidImagePicker.recognizeText(path);
+      final parsed = ResultOcrParser.parse(
+        raw.map(OcrToken.fromMap).toList(),
+      );
+      for (var i = 0; i < _topFields.length; i++) {
+        _controllers[_topFields[i]]!.text = parsed.prizes[i];
+      }
+      for (var i = 0; i < _bottomFields.length; i++) {
+        _controllers[_bottomFields[i]]!.text = parsed.compliments[i];
+      }
+      if (parsed.date != null) {
+        _selectedDate = parsed.date!;
+        _resultId = null;
+      }
+      _message =
+          'Filled from screenshot. Check the numbers, then save.';
+    } catch (error) {
+      _message = error.toString().replaceFirst('Exception: ', '');
+    } finally {
+      if (mounted) setState(() => _scanning = false);
+    }
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -191,7 +226,22 @@ class _AdminResultEditorViewState extends State<AdminResultEditorView> {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: Text('$title - ${widget.game.name}')),
+      appBar: AppBar(
+        title: Text('$title - ${widget.game.name}'),
+        actions: [
+          IconButton(
+            tooltip: 'Fill from screenshot',
+            onPressed: _scanning ? null : _fillFromScreenshot,
+            icon: _scanning
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.image_outlined),
+          ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -204,6 +254,11 @@ class _AdminResultEditorViewState extends State<AdminResultEditorView> {
                         'Date: $dateLabel',
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
+                    ),
+                    IconButton(
+                      tooltip: 'Fill from screenshot',
+                      onPressed: _scanning ? null : _fillFromScreenshot,
+                      icon: const Icon(Icons.image_outlined),
                     ),
                     OutlinedButton(
                       onPressed: _pickDate,

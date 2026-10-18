@@ -14,6 +14,16 @@ class AndroidImagePicker {
     return path;
   }
 
+  static Future<List<Map<String, dynamic>>> recognizeText(String path) async {
+    final raw = await _channel.invokeMethod<List<dynamic>>('recognizeText', {
+      'path': path,
+    });
+    return (raw ?? const [])
+        .whereType<Map>()
+        .map((item) => item.map((key, value) => MapEntry(key.toString(), value)))
+        .toList();
+  }
+
   /// Returns local video file path, or null if user cancelled.
   static Future<String?> pickVideo() async {
     final path = await _channel.invokeMethod<String>('pickVideo');

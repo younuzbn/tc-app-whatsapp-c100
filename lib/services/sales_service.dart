@@ -163,6 +163,8 @@ class WalletTopupMessage {
     required this.createdAt,
     this.status = 'credited',
     this.userStatus = 'Successful',
+    this.disputeStatus = '',
+    this.canDispute = false,
   });
 
   final String id;
@@ -173,10 +175,15 @@ class WalletTopupMessage {
   final DateTime? createdAt;
   final String status;
   final String userStatus;
+  final String disputeStatus;
+  final bool canDispute;
 
   bool get isPending => status == 'pending';
   bool get isCredited => status == 'credited';
   bool get isRejected => status == 'rejected';
+  bool get isCancelled => status == 'cancelled';
+  bool get hasOpenDispute => disputeStatus == 'open';
+  bool get showDisputeAction => canDispute;
 
   factory WalletTopupMessage.fromJson(Map<String, dynamic> json) {
     final path = json['screenshotUrl']?.toString() ?? '';
@@ -194,7 +201,14 @@ class WalletTopupMessage {
         ? 'Processing'
         : status == 'rejected'
         ? 'Failed'
+        : status == 'cancelled'
+        ? 'Cancelled'
         : 'Successful';
+    final disputeStatus = json['disputeStatus']?.toString() ?? '';
+    final canDispute = json['canDispute'] == true ||
+        (json['canDispute'] == null &&
+            status != 'credited' &&
+            disputeStatus != 'open');
     return WalletTopupMessage(
       id: id,
       username: json['username']?.toString() ?? '',
@@ -206,6 +220,8 @@ class WalletTopupMessage {
       userStatus: json['userStatus']?.toString().isNotEmpty == true
           ? json['userStatus'].toString()
           : fallbackStatus,
+      disputeStatus: disputeStatus,
+      canDispute: canDispute,
     );
   }
 }
@@ -292,6 +308,18 @@ class ConversationMessage {
       sale: sale,
     );
   }
+}
+
+class ConversationPage {
+  const ConversationPage({
+    required this.messages,
+    required this.hasMore,
+    this.nextBefore,
+  });
+
+  final List<ConversationMessage> messages;
+  final bool hasMore;
+  final DateTime? nextBefore;
 }
 
 class SalesPage {
@@ -427,21 +455,27 @@ class SalesService {
     }
   }
 
-  Future<List<ConversationMessage>> getCustomerConversation(String customerId) async {
+  Future<ConversationPage> getCustomerConversation(
+    String customerId, {
+    DateTime? before,
+    int limit = 60,
+  }) async {
     final token = SessionService.authToken;
     if (token == null) {
       throw Exception('Login required');
     }
 
     try {
+      final query = <String, String>{
+        'limit': '$limit',
+        if (before != null) 'before': before.toUtc().toIso8601String(),
+      };
+      final uri = Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/sales/mobile-chats/$customerId/messages',
+      ).replace(queryParameters: query);
       final response = await http
-          .get(
-            Uri.parse(
-              '${AppConfig.apiBaseUrl}/api/sales/mobile-chats/$customerId/messages',
-            ),
-            headers: _headers(token),
-          )
-          .timeout(const Duration(seconds: 8));
+          .get(uri, headers: _headers(token))
+          .timeout(const Duration(seconds: 12));
 
       final body = _decodeBody(response.body);
       if (response.statusCode >= 400 || body['success'] != true) {
@@ -449,10 +483,17 @@ class SalesService {
       }
 
       final items = body['data'] as List<dynamic>? ?? const [];
-      return items
-          .whereType<Map<String, dynamic>>()
-          .map(ConversationMessage.fromJson)
-          .toList();
+      final nextRaw = body['nextBefore']?.toString();
+      return ConversationPage(
+        messages: items
+            .whereType<Map<String, dynamic>>()
+            .map(ConversationMessage.fromJson)
+            .toList(),
+        hasMore: body['hasMore'] == true,
+        nextBefore: nextRaw == null || nextRaw.isEmpty
+            ? null
+            : DateTime.tryParse(nextRaw),
+      );
     } on SocketException catch (error) {
       throw mapNetworkError(error);
     } on HttpException catch (error) {

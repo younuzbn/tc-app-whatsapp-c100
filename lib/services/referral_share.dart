@@ -1,11 +1,7 @@
-import 'dart:io';
-
-import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../config/app_config.dart';
-
-const referShareAssetPath = 'assets/share_video.mp4';
+import 'share_media_cache.dart';
 
 String referralInviteUrl(String code) {
   final formatted = code.trim().toUpperCase();
@@ -47,31 +43,52 @@ String? _normalizeReferral(String? raw) {
   return value;
 }
 
-String referralShareText(String code) {
+String referralShareText(String code, {String? template}) {
   final formatted = code.trim().toUpperCase();
-  return '''
+  final link = referralInviteUrl(formatted);
+  var text = (template ?? '').trim();
+  if (text.isEmpty) {
+    text = '''
 📲 Download and Install:
-${referralInviteUrl(formatted)}
+{link}
 
 🎁 Use my referral code to get a bonus:
 `$formatted`
 '''
-      .trim();
+        .trim();
+  }
+  final hadLink = text.contains('{link}');
+  final hadCode = text.contains('{code}') || text.contains('{referral}');
+  text = text
+      .replaceAll('{link}', link)
+      .replaceAll('{code}', formatted)
+      .replaceAll('{referral}', formatted);
+  if (!hadLink) text = '$text\n\n$link';
+  if (!hadCode && formatted.isNotEmpty) text = '$text\n`$formatted`';
+  return text.trim();
 }
 
 Future<void> shareWinAppInvite(String code) async {
-  final data = await rootBundle.load(referShareAssetPath);
-  final file = File('${Directory.systemTemp.path}/win-app-refer.mp4');
-  await file.writeAsBytes(
-    data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
-    flush: true,
-  );
+  final ready = await ShareMediaCache.instance.ensureReady();
+  final files = <XFile>[];
+  final file = ready.file;
+  if (file != null) {
+    files.add(
+      XFile(
+        file.path,
+        mimeType: (ready.mime != null && ready.mime!.isNotEmpty)
+            ? ready.mime
+            : null,
+        name: (ready.name != null && ready.name!.isNotEmpty)
+            ? ready.name
+            : file.uri.pathSegments.last,
+      ),
+    );
+  }
   await SharePlus.instance.share(
     ShareParams(
-      text: referralShareText(code),
-      files: [
-        XFile(file.path, mimeType: 'video/mp4', name: 'win-app-refer.mp4'),
-      ],
+      text: referralShareText(code, template: ready.text),
+      files: files,
     ),
   );
 }

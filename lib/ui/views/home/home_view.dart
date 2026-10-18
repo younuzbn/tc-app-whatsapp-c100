@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
 
+import '../../../services/page_content_defaults.dart';
+import '../../../services/page_content_service.dart';
 import '../../../services/session_service.dart';
 import '../../theme/win_theme.dart';
 import '../entries/my_entries_view.dart';
@@ -70,6 +73,7 @@ class HomeView extends StackedView<HomeViewModel> {
                           builder: (_) => const NotificationsView(),
                         ),
                       );
+                      await NotificationsView.settle();
                       if (context.mounted) {
                         await viewModel.refreshNotifications();
                       }
@@ -85,6 +89,9 @@ class HomeView extends StackedView<HomeViewModel> {
                       }
                     },
                     onPriceChartTap: () {
+                      unawaited(
+                        PageContentService.instance.refresh(kPriceChartPageKey),
+                      );
                       Navigator.of(context).push<void>(
                         MaterialPageRoute<void>(
                           builder: (_) =>

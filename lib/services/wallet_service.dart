@@ -184,7 +184,7 @@ class WithdrawRequestItem {
   String get displayStatus {
     switch (status) {
       case 'completed':
-        return 'Processed';
+        return 'Successful';
       case 'rejected':
         return 'Failed';
       default:
@@ -301,6 +301,133 @@ class WalletTransactionItem {
   }
 }
 
+class SuccessfulPaymentItem {
+  const SuccessfulPaymentItem({
+    required this.id,
+    required this.username,
+    required this.userName,
+    required this.userPhone,
+    required this.amount,
+    required this.orderId,
+    required this.uti,
+    required this.provider,
+    this.paidAt,
+  });
+
+  final String id;
+  final String username;
+  final String userName;
+  final String userPhone;
+  final double amount;
+  final String orderId;
+  final String uti;
+  final String provider;
+  final DateTime? paidAt;
+
+  String get displayName => userName.isNotEmpty ? userName : userPhone;
+
+  String get providerLabel {
+    switch (provider) {
+      case 'carcare':
+        return 'Razorpay';
+      case 'cashfree':
+        return 'Cashfree';
+      case 'manual':
+        return 'Manual';
+      default:
+        return provider;
+    }
+  }
+
+  factory SuccessfulPaymentItem.fromJson(Map<String, dynamic> json) {
+    return SuccessfulPaymentItem(
+      id: json['id']?.toString() ?? '',
+      username: json['username']?.toString() ?? '',
+      userName: json['userName']?.toString() ?? '',
+      userPhone: json['userPhone']?.toString() ?? '',
+      amount: double.tryParse(json['amount']?.toString() ?? '') ?? 0,
+      orderId: json['orderId']?.toString() ?? '',
+      uti: json['uti']?.toString() ?? '',
+      provider: json['provider']?.toString() ?? '',
+      paidAt: DateTime.tryParse(
+        json['paidAt']?.toString() ??
+            json['verifiedAt']?.toString() ??
+            json['createdAt']?.toString() ??
+            '',
+      ),
+    );
+  }
+}
+
+class PaymentDisputeItem {
+  const PaymentDisputeItem({
+    required this.id,
+    required this.username,
+    required this.userName,
+    required this.userPhone,
+    required this.amount,
+    required this.orderId,
+    required this.paymentStatus,
+    required this.reason,
+    required this.note,
+    required this.images,
+    required this.status,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String username;
+  final String userName;
+  final String userPhone;
+  final double amount;
+  final String orderId;
+  final String paymentStatus;
+  final String reason;
+  final String note;
+  final List<String> images;
+  final String status;
+  final DateTime? createdAt;
+
+  String get displayName => userName.isNotEmpty ? userName : username;
+
+  factory PaymentDisputeItem.fromJson(Map<String, dynamic> json) {
+    return PaymentDisputeItem(
+      id: json['id']?.toString() ?? '',
+      username: json['username']?.toString() ?? '',
+      userName: json['userName']?.toString() ?? '',
+      userPhone: json['userPhone']?.toString() ?? '',
+      amount: double.tryParse(json['amount']?.toString() ?? '') ?? 0,
+      orderId: json['orderId']?.toString() ?? '',
+      paymentStatus: json['paymentStatus']?.toString() ?? '',
+      reason: json['reason']?.toString() ?? '',
+      note: json['note']?.toString() ?? '',
+      images: (json['images'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .where((item) => item.isNotEmpty)
+          .toList(),
+      status: json['status']?.toString() ?? 'open',
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
+    );
+  }
+
+  String get reasonLabel {
+    switch (reason) {
+      case 'debited_not_credited':
+        return 'Money debited but not credited in wallet';
+      case 'debited_shows_cancelled':
+        return 'Money debited but shows cancelled';
+      case 'debited_shows_failed':
+        return 'Money debited but showing failed';
+      case 'debited_still_processing':
+        return 'Money debited but still processing';
+      case 'charged_twice':
+        return 'Charged more than once';
+      default:
+        return 'Other';
+    }
+  }
+}
+
 class WalletService {
   const WalletService();
 
@@ -404,6 +531,169 @@ class WalletService {
     } on http.ClientException catch (error) {
       throw mapNetworkError(error);
     }
+  }
+
+  Future<void> reportPaymentDispute({
+    required String topupId,
+    required String reason,
+    String note = '',
+    List<({String base64, String mime})> images = const [],
+  }) async {
+    final token = SessionService.authToken;
+    if (token == null || token.isEmpty) {
+      throw Exception('Login required');
+    }
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/mobile/wallet/disputes');
+    try {
+      final response = await http
+          .post(
+            uri,
+            headers: _headers(token),
+            body: jsonEncode({
+              'topupId': topupId,
+              'reason': reason,
+              if (note.trim().isNotEmpty) 'note': note.trim(),
+              if (images.isNotEmpty)
+                'images': images
+                    .map(
+                      (image) => {
+                        'mediaBase64': image.base64,
+                        'mediaMime': image.mime,
+                      },
+                    )
+                    .toList(),
+            }),
+          )
+          .timeout(const Duration(seconds: 40));
+      final body = _decodeBody(response.body);
+      if (response.statusCode >= 400 || body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to send report');
+      }
+    } on SocketException catch (error) {
+      throw mapNetworkError(error);
+    } on HttpException catch (error) {
+      throw mapNetworkError(error);
+    } on TimeoutException catch (error) {
+      throw mapNetworkError(error);
+    } on http.ClientException catch (error) {
+      throw mapNetworkError(error);
+    }
+  }
+
+  Future<int> fetchOpenDisputeCount() async {
+    final token = SessionService.authToken;
+    if (token == null || token.isEmpty) return 0;
+    try {
+      final response = await http
+          .get(
+            Uri.parse(
+              '${AppConfig.apiBaseUrl}/api/admin/payment-disputes/open-count',
+            ),
+            headers: _headers(token),
+          )
+          .timeout(const Duration(seconds: 8));
+      final body = _decodeBody(response.body);
+      if (response.statusCode >= 400 || body['success'] != true) return 0;
+      final data = body['data'] as Map<String, dynamic>? ?? {};
+      return int.tryParse(data['openCount']?.toString() ?? '') ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<({List<PaymentDisputeItem> items, bool hasMore, int openCount})>
+  fetchPaymentDisputes({String? before, String status = 'open'}) async {
+    final token = SessionService.authToken;
+    if (token == null || token.isEmpty) {
+      throw Exception('Login required');
+    }
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/admin/payment-disputes')
+        .replace(
+          queryParameters: {
+            'status': status,
+            'limit': '30',
+            if (before != null && before.isNotEmpty) 'before': before,
+          },
+        );
+    final response = await http
+        .get(uri, headers: _headers(token))
+        .timeout(const Duration(seconds: 15));
+    final body = _decodeBody(response.body);
+    if (response.statusCode >= 400 || body['success'] != true) {
+      throw Exception(body['message'] ?? 'Failed to load payment disputes');
+    }
+    final data = body['data'] as Map<String, dynamic>? ?? {};
+    final items = (data['disputes'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(PaymentDisputeItem.fromJson)
+        .toList();
+    return (
+      items: items,
+      hasMore: data['hasMore'] == true,
+      openCount: int.tryParse(data['openCount']?.toString() ?? '') ?? 0,
+    );
+  }
+
+  Future<({List<SuccessfulPaymentItem> items, bool hasMore})>
+  fetchSuccessfulPayments({String? before}) async {
+    final token = SessionService.authToken;
+    if (token == null || token.isEmpty) {
+      throw Exception('Login required');
+    }
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/admin/successful-payments')
+        .replace(
+          queryParameters: {
+            'limit': '30',
+            if (before != null && before.isNotEmpty) 'before': before,
+          },
+        );
+    final response = await http
+        .get(uri, headers: _headers(token))
+        .timeout(const Duration(seconds: 15));
+    final body = _decodeBody(response.body);
+    if (response.statusCode >= 400 || body['success'] != true) {
+      throw Exception(body['message'] ?? 'Failed to load successful payments');
+    }
+    final data = body['data'] as Map<String, dynamic>? ?? {};
+    final items = (data['payments'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(SuccessfulPaymentItem.fromJson)
+        .toList();
+    return (items: items, hasMore: data['hasMore'] == true);
+  }
+
+  Future<void> updatePaymentDispute(String id, {required String status}) async {
+    final token = SessionService.authToken;
+    if (token == null || token.isEmpty) throw Exception('Login required');
+    final response = await http
+        .put(
+          Uri.parse('${AppConfig.apiBaseUrl}/api/admin/payment-disputes/$id'),
+          headers: _headers(token),
+          body: jsonEncode({'status': status}),
+        )
+        .timeout(const Duration(seconds: 15));
+    final body = _decodeBody(response.body);
+    if (response.statusCode >= 400 || body['success'] != true) {
+      throw Exception(body['message'] ?? 'Failed to update dispute');
+    }
+  }
+
+  Future<String> creditDisputedPayment(String id) async {
+    final token = SessionService.authToken;
+    if (token == null || token.isEmpty) throw Exception('Login required');
+    final response = await http
+        .post(
+          Uri.parse(
+            '${AppConfig.apiBaseUrl}/api/admin/payment-disputes/$id/credit',
+          ),
+          headers: _headers(token),
+        )
+        .timeout(const Duration(seconds: 20));
+    final body = _decodeBody(response.body);
+    if (response.statusCode >= 400 || body['success'] != true) {
+      throw Exception(body['message'] ?? 'Failed to credit wallet');
+    }
+    return body['message']?.toString() ?? 'Wallet credited';
   }
 
   Future<void> cancelCarcarePayment(String orderId) async {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../config/app_config.dart';
 import '../../../services/app_update_service.dart';
+import '../../../services/os_app_badge_service.dart';
 import '../../theme/win_theme.dart';
 
 class ForceUpdateView extends StatelessWidget {
@@ -129,4 +130,6 @@ class _UpdateGateState extends State<UpdateGate> {
   }
 }
 
-Widget wrapLoggedInApp(Widget child) => UpdateGate(child: child);
+Widget wrapLoggedInApp(Widget child) => OsAppBadgeHost(
+      child: UpdateGate(child: child),
+    );

@@ -15,6 +15,8 @@ class SessionService {
   static bool phoneVerified = false;
   static String? lastPhoneNumber;
   static String? pendingReferralCode;
+  static bool notificationPageOpened = false;
+  static final Set<String> seenNotificationIds = {};
 
   static bool get isLoggedIn => authToken != null && authToken!.isNotEmpty;
 
@@ -34,6 +36,10 @@ class SessionService {
     bool sessionIsAdmin = false,
     bool sessionPhoneVerified = false,
   }) {
+    if (sessionUserId != userId) {
+      notificationPageOpened = false;
+      seenNotificationIds.clear();
+    }
     authToken = token;
     username = sessionUsername;
     displayPhoneNumber = sessionDisplayPhoneNumber;
@@ -52,6 +58,13 @@ class SessionService {
     );
   }
 
+  static void replaceToken(String token) {
+    final next = token.trim();
+    if (next.isEmpty || next == authToken) return;
+    authToken = next;
+    unawaited(_persist());
+  }
+
   static void clear() {
     authToken = null;
     username = null;
@@ -61,7 +74,45 @@ class SessionService {
     referralCode = null;
     isAdmin = false;
     phoneVerified = false;
+    notificationPageOpened = false;
+    seenNotificationIds.clear();
     unawaited(_persist());
+    unawaited(_setAppBadge(0));
+  }
+
+  static Future<void> _setAppBadge(int count) async {
+    try {
+      await _channel.invokeMethod<void>('setAppBadge', {
+        'count': count,
+        'title': '',
+        'text': '',
+        'alert': false,
+      });
+    } catch (_) {}
+  }
+
+  /// Opening the notifications screen clears the home-header count.
+  /// Green dots stay until the user marks notifications read.
+  static void acknowledgeNotifications(Iterable<String> ids) {
+    notificationPageOpened = true;
+    for (final id in ids) {
+      if (id.isNotEmpty) seenNotificationIds.add(id);
+    }
+    if (seenNotificationIds.length > 300) {
+      final extra = seenNotificationIds.length - 300;
+      seenNotificationIds.removeAll(seenNotificationIds.take(extra).toList());
+    }
+    unawaited(_persist());
+  }
+
+  static int notificationBadgeCount({
+    required Iterable<({String id, bool read})> items,
+    required int serverUnread,
+  }) {
+    if (!notificationPageOpened) return serverUnread;
+    return items
+        .where((item) => !item.read && !seenNotificationIds.contains(item.id))
+        .length;
   }
 
   static Future<void> rememberLastPhone(String phone) async {
@@ -120,6 +171,16 @@ class SessionService {
       phoneVerified =
           data['phoneVerified'] == true ||
           data['phoneVerified']?.toString() == 'true';
+      notificationPageOpened =
+          data['notificationPageOpened'] == true ||
+          data['notificationPageOpened']?.toString() == 'true';
+      seenNotificationIds
+        ..clear()
+        ..addAll(
+          (data['seenNotificationIds']?.toString() ?? '')
+              .split(',')
+              .where((id) => id.isNotEmpty),
+        );
       lastPhoneNumber =
           tenDigitPhone(displayPhoneNumber) ??
           tenDigitPhone(username) ??
@@ -140,6 +201,8 @@ class SessionService {
             'referralCode': referralCode,
             'isAdmin': isAdmin,
             'phoneVerified': phoneVerified,
+            'notificationPageOpened': notificationPageOpened,
+            'seenNotificationIds': seenNotificationIds.join(','),
           }
         : <String, dynamic>{};
     try {

@@ -97,8 +97,56 @@ class ReferralTreeNode {
   }
 }
 
+class InvitedPerson {
+  const InvitedPerson({
+    required this.id,
+    required this.phoneNumber,
+    required this.displayPhoneNumber,
+    this.joinedAt,
+  });
+
+  final String id;
+  final String phoneNumber;
+  final String displayPhoneNumber;
+  final DateTime? joinedAt;
+
+  factory InvitedPerson.fromJson(Map<String, dynamic> json) {
+    return InvitedPerson(
+      id: json['id']?.toString() ?? '',
+      phoneNumber: json['phoneNumber']?.toString() ?? '',
+      displayPhoneNumber: json['displayPhoneNumber']?.toString() ??
+          json['phoneNumber']?.toString() ??
+          '',
+      joinedAt: DateTime.tryParse(json['joinedAt']?.toString() ?? ''),
+    );
+  }
+}
+
+class InvitedPeopleResult {
+  const InvitedPeopleResult({
+    required this.total,
+    required this.invites,
+  });
+
+  final int total;
+  final List<InvitedPerson> invites;
+}
+
 class ReferralService {
   const ReferralService();
+
+  Future<InvitedPeopleResult> listMyInvites() async {
+    final body = await _request('/api/mobile/referrals/invites');
+    final data = body['data'] as Map<String, dynamic>? ?? {};
+    final invitesJson = data['invites'] as List<dynamic>? ?? const [];
+    return InvitedPeopleResult(
+      total: int.tryParse(data['total']?.toString() ?? '') ?? 0,
+      invites: invitesJson
+          .whereType<Map<String, dynamic>>()
+          .map(InvitedPerson.fromJson)
+          .toList(),
+    );
+  }
 
   Future<List<AdminReferralCodeItem>> listCodes() async {
     final body = await _request('/api/admin/referral-codes');

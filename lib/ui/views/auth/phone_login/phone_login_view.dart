@@ -50,7 +50,8 @@ class PhoneLoginView extends StackedView<PhoneLoginViewModel> {
     PhoneLoginViewModel viewModel,
     Widget? child,
   ) {
-    return WinStatusBar(
+    return UpdateGate(
+      child: WinStatusBar(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Stack(
@@ -319,6 +320,7 @@ class PhoneLoginView extends StackedView<PhoneLoginViewModel> {
           ],
         ),
       ),
+    ),
     );
   }
 

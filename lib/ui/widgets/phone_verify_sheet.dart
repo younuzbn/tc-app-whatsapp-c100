@@ -46,11 +46,55 @@ class _PhoneVerifyDialogState extends State<_PhoneVerifyDialog> {
 
   bool _sending = false;
   bool _verifying = false;
-  bool _codeSent = false;
+  bool _verifyStarted = false;
   bool _applyingOtp = false;
+  bool _codeSent = false;
   String? _error;
+  String _storedOtp = '';
+  String _lastBoxLog = '';
+  final _committed = List.filled(6, '');
+  late final List<VoidCallback> _focusListeners = List.generate(
+    6,
+    (index) => () => _onBoxFocus(index),
+  );
   int _resendIn = 0;
   Timer? _timer;
+
+  static const _marker = '\u200b';
+
+  @override
+  void initState() {
+    super.initState();
+    for (var i = 0; i < 6; i++) {
+      _otpControllers[i].addListener(_onBoxTick);
+      _otpFocus[i].addListener(_focusListeners[i]);
+      final index = i;
+      _otpFocus[i].onKeyEvent = (node, event) {
+        if (event is! KeyDownEvent ||
+            event.logicalKey != LogicalKeyboardKey.backspace) {
+          return KeyEventResult.ignored;
+        }
+        if (_digitsOf(_otpControllers[index].text).isNotEmpty) {
+          return KeyEventResult.ignored;
+        }
+        _deletePrevious(index);
+        return KeyEventResult.handled;
+      };
+    }
+  }
+
+  void _onBoxTick() {
+    if (_applyingOtp) return;
+    final boxes = _boxTexts;
+    final extracted = _extract(boxes);
+    final signature = '$extracted|${boxes.join(',')}';
+    if (signature == _lastBoxLog) return;
+    _lastBoxLog = signature;
+    _storedOtp = extracted;
+    _log(
+      'boxes ${boxes.map(_debugText).join(' | ')} extracted="$extracted"',
+    );
+  }
 
   String get _digits {
     final raw = widget.phoneNumber.replaceAll(RegExp(r'\D'), '');
@@ -59,18 +103,24 @@ class _PhoneVerifyDialogState extends State<_PhoneVerifyDialog> {
 
   String get _display => '+${widget.countryCode} $_digits';
 
-  String get _otp => _otpControllers.map((c) => c.text).join();
-
   @override
   void dispose() {
     _timer?.cancel();
-    for (final c in _otpControllers) {
-      c.dispose();
-    }
-    for (final f in _otpFocus) {
-      f.dispose();
+    for (var i = 0; i < 6; i++) {
+      _otpControllers[i].removeListener(_onBoxTick);
+      _otpControllers[i].dispose();
+      _otpFocus[i].removeListener(_focusListeners[i]);
+      _otpFocus[i].dispose();
     }
     super.dispose();
+  }
+
+  void _log(String message) {
+    debugPrint('[PhoneVerify] $message');
+  }
+
+  String _debugText(String raw) {
+    return '"$raw" len=${raw.length} units=${raw.codeUnits}';
   }
 
   void _startResendTimer() {
@@ -92,6 +142,9 @@ class _PhoneVerifyDialogState extends State<_PhoneVerifyDialog> {
 
   Future<void> _sendOtp() async {
     if (_sending) return;
+    _log('send tapped phone=$_display stored="$_storedOtp"');
+    _storedOtp = '';
+    _clearBoxes();
     setState(() {
       _sending = true;
       _error = null;
@@ -100,6 +153,7 @@ class _PhoneVerifyDialogState extends State<_PhoneVerifyDialog> {
       countryCode: widget.countryCode,
       phoneNumber: _digits,
       onFailed: (message) {
+        _log('send failed: $message');
         if (!mounted) return;
         setState(() {
           _sending = false;
@@ -107,6 +161,7 @@ class _PhoneVerifyDialogState extends State<_PhoneVerifyDialog> {
         });
       },
       onCodeSent: () {
+        _log('ui codeSent mounted=$mounted');
         if (!mounted) return;
         setState(() {
           _sending = false;
@@ -119,6 +174,7 @@ class _PhoneVerifyDialogState extends State<_PhoneVerifyDialog> {
         });
       },
       onAutoVerified: (code) async {
+        _log('ui autoVerified sms=${code == null ? 'null' : _debugText(code)}');
         if (!mounted) return;
         setState(() {
           _sending = false;
@@ -127,30 +183,191 @@ class _PhoneVerifyDialogState extends State<_PhoneVerifyDialog> {
           _error = null;
         });
         if (code != null && code.trim().isNotEmpty) {
-          _applyOtp(code, submit: false);
+          _remember(code, reason: 'auto');
+          _distribute(_storedOtp);
         }
         await _submitFirebaseToken();
       },
     );
   }
 
+  String _digitsOf(String raw) => raw.replaceAll(RegExp(r'\D'), '');
+
+  String _extract(List<String> parts) {
+    for (final part in parts) {
+      final digits = _digitsOf(part);
+      if (digits.length >= 6) return digits.substring(0, 6);
+    }
+    final joined = parts.map(_digitsOf).join();
+    if (joined.length >= 6) return joined.substring(0, 6);
+    return joined;
+  }
+
+  List<String> get _boxTexts => _otpControllers.map((c) => c.text).toList();
+
+  void _remember(String raw, {required String reason}) {
+    final digits = _digitsOf(raw);
+    final code = digits.length > 6 ? digits.substring(0, 6) : digits;
+    _log('remember/$reason ${_debugText(raw)} -> "$code"');
+    if (code.length >= _storedOtp.length) _storedOtp = code;
+  }
+
+  void _clearBoxes() {
+    _applyingOtp = true;
+    for (var i = 0; i < 6; i++) {
+      _committed[i] = '';
+      _otpControllers[i].clear();
+    }
+    _applyingOtp = false;
+    _storedOtp = '';
+  }
+
+  void _distribute(String code) {
+    _applyingOtp = true;
+    for (var i = 0; i < 6; i++) {
+      final char = i < code.length ? code[i] : '';
+      _committed[i] = char;
+      if (_digitsOf(_otpControllers[i].text) != char) {
+        _otpControllers[i].value = TextEditingValue(
+          text: char,
+          selection: TextSelection.collapsed(offset: char.length),
+        );
+      }
+    }
+    _applyingOtp = false;
+    _storedOtp = code;
+  }
+
+  void _onBoxFocus(int index) {
+    if (_applyingOtp || _verifying) return;
+    if (_otpFocus[index].hasFocus) {
+      _prepareBox(index);
+    } else {
+      _stripMarker(index);
+    }
+  }
+
+  void _prepareBox(int index) {
+    final digit = _digitsOf(_otpControllers[index].text);
+    _applyingOtp = true;
+    if (digit.isEmpty) {
+      _otpControllers[index].value = const TextEditingValue(
+        text: _marker,
+        selection: TextSelection(baseOffset: 0, extentOffset: 1),
+      );
+    } else {
+      _otpControllers[index].value = TextEditingValue(
+        text: digit,
+        selection: TextSelection(baseOffset: 0, extentOffset: digit.length),
+      );
+    }
+    _applyingOtp = false;
+  }
+
+  void _stripMarker(int index) {
+    final digit = _digitsOf(_otpControllers[index].text);
+    if (_otpControllers[index].text == digit) return;
+    _applyingOtp = true;
+    _otpControllers[index].text = digit;
+    _applyingOtp = false;
+  }
+
+  void _deletePrevious(int index) {
+    if (index <= 0 || _verifying) return;
+    final previous = index - 1;
+    _committed[previous] = '';
+    _applyingOtp = true;
+    _otpControllers[previous].text = '';
+    _otpControllers[index].text = '';
+    _applyingOtp = false;
+    _storedOtp = _extract(_boxTexts);
+    _log('backspace from $index -> focus $previous stored="$_storedOtp"');
+    _otpFocus[previous].requestFocus();
+    if (mounted) setState(() {});
+  }
+
+  void _onOtpChanged(int index, String value) {
+    if (_applyingOtp) return;
+    final digits = _digitsOf(value);
+    final previous = _committed[index];
+    _log('box $index onChanged ${_debugText(value)} digits="$digits"');
+
+    if (digits.isEmpty) {
+      _committed[index] = '';
+      _applyingOtp = true;
+      _otpControllers[index].text = '';
+      _applyingOtp = false;
+      if (previous.isEmpty) {
+        _deletePrevious(index);
+      } else {
+        _storedOtp = _extract(_boxTexts);
+        _prepareBox(index);
+        _log('cleared box $index stored="$_storedOtp"');
+        if (mounted) setState(() {});
+      }
+      return;
+    }
+
+    _applyingOtp = true;
+    var cursor = index;
+    for (var i = 0; i < digits.length && cursor < 6; i++, cursor++) {
+      _committed[cursor] = digits[i];
+      _otpControllers[cursor].value = TextEditingValue(
+        text: digits[i],
+        selection: const TextSelection.collapsed(offset: 1),
+      );
+    }
+    _applyingOtp = false;
+    _storedOtp = _extract(_boxTexts);
+    _log('typed stored="$_storedOtp" next=$cursor');
+    if (cursor < 6) {
+      _otpFocus[cursor].requestFocus();
+    } else {
+      _prepareBox(5);
+    }
+    if (mounted) setState(() {});
+  }
+
   Future<void> _verifyTypedOtp() async {
-    if (_verifying) return;
-    if (_otp.length != 6) {
+    if (_verifying || _verifyStarted) {
+      _log(
+        'verify skipped verifying=$_verifying started=$_verifyStarted '
+        'stored="$_storedOtp"',
+      );
+      return;
+    }
+    final boxes = _boxTexts;
+    final code = _extract(boxes);
+    _storedOtp = code;
+    _log(
+      'verify stored="$_storedOtp" using="$code" '
+      'boxes=${boxes.map(_debugText).join(' | ')}',
+    );
+    if (code.length != 6) {
+      final detail =
+          'len=${code.length} stored="$_storedOtp" '
+          'boxes=${boxes.map((box) => _debugText(box)).join(' | ')}';
+      _log('verify rejected $detail');
       setState(() => _error = 'Enter the 6-digit OTP');
       return;
     }
+
+    _verifyStarted = true;
+    _storedOtp = code;
     setState(() {
       _verifying = true;
       _error = null;
     });
     try {
-      final token = await _firebase.confirmSmsCode(_otp);
+      final token = await _firebase.confirmSmsCode(code);
+      _log('firebase token len=${token.length}');
       await _finish(token);
     } catch (error) {
+      _log('verify error: $error');
       if (!mounted) return;
       setState(() {
         _verifying = false;
+        _verifyStarted = false;
         _error = error.toString().replaceFirst('Exception: ', '');
       });
     }
@@ -165,65 +382,56 @@ class _PhoneVerifyDialogState extends State<_PhoneVerifyDialog> {
       setState(() {
         _sending = false;
         _verifying = false;
+        _verifyStarted = false;
         _error = error.toString().replaceFirst('Exception: ', '');
       });
     }
   }
 
   Future<void> _finish(String idToken) async {
+    final tokenPhone = PhoneVerificationService.phoneTailFromIdToken(idToken);
+    _log('server confirm start tokenPhone=$tokenPhone account=$_digits');
     try {
-      await _auth.confirmPhoneVerification(idToken);
-      await _firebase.signOut();
-      SessionService.markPhoneVerified();
-      if (!mounted) return;
-      Navigator.of(context).pop(true);
+      await _confirmOnServer(idToken);
     } catch (error) {
-      await _firebase.signOut();
-      if (!mounted) return;
-      setState(() {
-        _sending = false;
-        _verifying = false;
-        _error = error.toString().replaceFirst('Exception: ', '');
-      });
+      final message = error.toString().replaceFirst('Exception: ', '');
+      final retryable = message.contains('Invalid or expired OTP') ||
+          message.contains('not linked to a mobile number');
+      if (!retryable) {
+        await _failFinish(message);
+        return;
+      }
+      _log('server rejected token, refreshing once: $message');
+      try {
+        final refreshed = await _firebase.idToken();
+        await _confirmOnServer(refreshed);
+      } catch (retryError) {
+        await _failFinish(
+          retryError.toString().replaceFirst('Exception: ', ''),
+        );
+      }
     }
   }
 
-  void _applyOtp(String raw, {bool submit = true}) {
-    final digits = raw.replaceAll(RegExp(r'\D'), '');
-    if (digits.isEmpty) return;
-    final code = digits.length > 6 ? digits.substring(0, 6) : digits;
-    _applyingOtp = true;
-    for (var i = 0; i < 6; i++) {
-      _otpControllers[i].value = TextEditingValue(
-        text: i < code.length ? code[i] : '',
-      );
-    }
-    _applyingOtp = false;
+  Future<void> _confirmOnServer(String idToken) async {
+    await _auth.confirmPhoneVerification(idToken);
+    _log('server confirm ok');
+    await _firebase.signOut();
+    SessionService.markPhoneVerified();
     if (!mounted) return;
-    if (code.length == 6) {
-      FocusScope.of(context).unfocus();
-      if (submit) unawaited(_verifyTypedOtp());
-    } else {
-      _otpFocus[code.length.clamp(0, 5)].requestFocus();
-    }
-    setState(() {});
+    Navigator.of(context).pop(true);
   }
 
-  void _onOtpChanged(int index, String value) {
-    if (_applyingOtp) return;
-    if (value.length > 1) {
-      _applyOtp(value);
-      return;
-    }
-    if (value.length == 1 && index < 5) {
-      _otpFocus[index + 1].requestFocus();
-    } else if (value.isEmpty && index > 0) {
-      _otpFocus[index - 1].requestFocus();
-    }
-    if (_otp.length == 6) {
-      unawaited(_verifyTypedOtp());
-    }
-    setState(() {});
+  Future<void> _failFinish(String message) async {
+    _log('server confirm failed: $message');
+    await _firebase.signOut();
+    if (!mounted) return;
+    setState(() {
+      _sending = false;
+      _verifying = false;
+      _verifyStarted = false;
+      _error = message;
+    });
   }
 
   @override
@@ -274,25 +482,33 @@ class _PhoneVerifyDialogState extends State<_PhoneVerifyDialog> {
                   const SizedBox(height: 18),
                   AutofillGroup(
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(6, (index) {
-                        return SizedBox(
-                          width: 38,
+                        return Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(left: index == 0 ? 0 : 6),
+                            child: SizedBox(
                           height: 48,
                           child: TextField(
                             controller: _otpControllers[index],
                             focusNode: _otpFocus[index],
                             enabled: !busy,
-                            autofillHints: const [AutofillHints.oneTimeCode],
+                            autofillHints: index == 0
+                                ? const [AutofillHints.oneTimeCode]
+                                : null,
                             keyboardType: TextInputType.number,
-                            textInputAction: index == 5
-                                ? TextInputAction.done
-                                : TextInputAction.next,
+                            textInputAction: TextInputAction.none,
                             textAlign: TextAlign.center,
-                            maxLength: 6,
+                            enableSuggestions: false,
+                            autocorrect: false,
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(6),
                             ],
+                            onTap: () {
+                              _otpFocus[index].requestFocus();
+                              _prepareBox(index);
+                            },
+                            onEditingComplete: () {},
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 20,
@@ -318,6 +534,8 @@ class _PhoneVerifyDialogState extends State<_PhoneVerifyDialog> {
                               ),
                             ),
                             onChanged: (value) => _onOtpChanged(index, value),
+                          ),
+                            ),
                           ),
                         );
                       }),

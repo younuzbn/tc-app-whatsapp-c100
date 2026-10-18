@@ -31,6 +31,13 @@ android {
         versionName = flutter.versionName
     }
 
+    packaging {
+        jniLibs {
+            // Flutter still compiles x86_64; strip it so the APK is phones-only.
+            excludes += listOf("lib/x86/**", "lib/x86_64/**")
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
@@ -42,6 +49,11 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("androidx.core:core-ktx:1.13.1")
 }
 
 if (file("google-services.json").exists()) {

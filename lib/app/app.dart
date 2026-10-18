@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/auth_service.dart';
 import '../services/session_service.dart';
 import '../ui/theme/win_theme.dart';
 import '../ui/views/admin/admin_home_view.dart';
@@ -25,6 +26,9 @@ class _AppState extends State<App> {
 
   Future<void> _openInitialRoute() async {
     await SessionService.restore();
+    if (SessionService.isLoggedIn) {
+      await const AuthService().refreshSession();
+    }
     if (!mounted) return;
     setState(() {
       if (!SessionService.isLoggedIn) {
